@@ -27,7 +27,6 @@
   .top{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px}
   .btn{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer}
   .btn:hover{background:#f5f5f5}
-  .right{display:flex;gap:8px}
   .disabled{opacity:.5;pointer-events:none}
 </style>
 
@@ -35,10 +34,7 @@
   <aside>
     <div class="top">
       <strong>Contents</strong>
-      <div class="right">
-        <button id="copyLink" class="btn" title="Copy deep link">Copy</button>
-        <button id="openRepo" class="btn" title="Open on GitHub">GitHub</button>
-      </div>
+      <button id="openRepo" class="btn" title="Open on GitHub">GitHub</button>
     </div>
     <div class="row">
       <input id="q" type="search" placeholder="Filter files…（例：.html）">
@@ -60,67 +56,56 @@
 
   let owner = qs('owner') || qs('user') || '';
   let repo  = qs('repo')  || '';
-  const isPages = /\.github\.io$/.test(location.hostname);
-  if (isPages && !owner) owner = location.hostname.split('.')[0];
-  if (isPages && !repo)  repo  = location.pathname.split('/').filter(Boolean)[0] || '';
-  if (!owner && repo.includes('/')) [owner, repo] = repo.split('/');
   if (!owner) owner = 'the-tsukasa';
   if (!repo)  repo  = 'my-preview';
-
   const ref  = qs('ref','main');
   let basePath = qs('path','');
   if (basePath === '/') basePath = '';
   const fileParam = qs('file','');
 
   const pagesBase = `https://${owner}.github.io/${repo}/`;
-  const blobBase  = `https://github.com/${owner}/${repo}/blob/${ref}/`;
   const apiBase   = `https://api.github.com/repos/${owner}/${repo}/contents/`;
 
   const $ = (s)=>document.querySelector(s);
   const listBox = $('#list'), crumbsBox = $('#crumbs'), input = $('#q');
   const iframe = $('#view'), hint = $('#hint');
-  const copyBtn = $('#copyLink');
 
   const encPath = (p)=>p.split('/').filter(Boolean).map(encodeURIComponent).join('/');
   const apiUrl   = (p='') => `${apiBase}${encPath(p)}?ref=${encodeURIComponent(ref)}`;
   const pagesUrl = (p='') => pagesBase + encPath(p);
-  const blobUrl  = (p='') => `https://github.com/${owner}/${repo}/blob/${ref}/${p}`;
 
   $('#openRepo').onclick = ()=> window.open(`https://github.com/${owner}/${repo}`, '_blank');
   $('#up').onclick = ()=> { if (!basePath) return; const parent = basePath.split('/').filter(Boolean).slice(0,-1).join('/'); navigate(parent); };
   input.oninput = ()=> filterList(input.value.trim().toLowerCase());
-  copyBtn.onclick = async ()=>{ await navigator.clipboard.writeText(location.href); copyBtn.textContent='Copied'; setTimeout(()=>copyBtn.textContent='Copy', 1200); };
 
+  // ---- 防止自我预览 ----
   function isSelf(relPath){
     const target = new URL(pagesUrl(relPath), location.href);
     const self   = new URL(location.href);
     return target.origin === self.origin &&
-           target.pathname.replace(/\/+$/,'') === self.pathname.replace(/\/+$/,'');
+           target.pathname.replace(/\/+$/,'') === self.pathname.replace(/\/+$/,'') &&
+           target.search === self.search;  // 搜索参数也要一致
   }
 
   async function list(path=''){
     setCrumbs(path);
     listBox.textContent = 'Loading…';
-    hint.textContent = '';
     try {
       const res = await fetch(apiUrl(path));
       const data = await res.json();
-      if (!Array.isArray(data)) { listBox.textContent = '读取失败'; return; }
+      if (!Array.isArray(data)) { listBox.textContent='读取失败'; return; }
       const dirs  = data.filter(i=>i.type==='dir').sort((a,b)=>a.name.localeCompare(b.name));
       const files = data.filter(i=>i.type==='file').sort((a,b)=>a.name.localeCompare(b.name));
       renderList([...dirs,...files], path);
       if (fileParam) {
         const p = join(path,fileParam);
         if (!isSelf(p)) openPreview(p,true);
-      } else {
-        const idx = files.find(f=>/^(index|readme)\.html?$/i.test(f.name));
-        if (idx && !isSelf(join(path, idx.name))) openPreview(join(path, idx.name),true);
       }
-    } catch(e){ listBox.textContent = '读取异常：'+e; }
+    } catch(e){ listBox.textContent='异常：'+e; }
   }
 
   function join(a,b){ return (a? a.replace(/\/+$/,'') + '/' : '') + b; }
-  function el(tag,cls,text){ const n=document.createElement(tag); if(cls) n.className=cls; if(text!=null) n.textContent=text; return n; }
+  function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;}
 
   function renderList(items,path){
     listBox.innerHTML='';
@@ -128,22 +113,21 @@
     items.forEach(it=>{
       const a=el('a','item');
       a.href='#';
-      const icon=el('span','', it.type==='dir'?'📁':'📄'); a.appendChild(icon);
+      a.appendChild(el('span','', it.type==='dir'?'📁':'📄'));
       a.appendChild(el('span','',it.name));
       const rp=join(path,it.name);
-      if(it.type==='dir'){ a.onclick=(e)=>{e.preventDefault(); navigate(rp);}; }
-      else{
-        if(isSelf(rp)){ a.classList.add('disabled'); a.title='This page cannot preview itself'; }
-        else{ a.onclick=(e)=>{e.preventDefault(); openPreview(rp);}; }
+      if(it.type==='dir'){
+        a.onclick=(e)=>{e.preventDefault(); navigate(rp);};
+      }else{
+        if(/^index\.html?$/i.test(it.name)){ // 禁止点击 index.html
+          a.classList.add('disabled');
+          a.title='This index.html cannot preview itself';
+        }else{
+          a.onclick=(e)=>{e.preventDefault(); openPreview(rp);};
+        }
       }
       listBox.appendChild(a);
     });
-  }
-
-  function filterList(q){
-    if(!q){ list(basePath); return; }
-    const filtered=currentItems.filter(it=>it.name.toLowerCase().includes(q));
-    renderList(filtered,basePath);
   }
 
   function setCrumbs(path){
@@ -151,18 +135,21 @@
     const segs=path.split('/').filter(Boolean);
     const mk=(text,to)=>{const a=el('a','',text||owner+'/'+repo);a.href='#';a.onclick=(e)=>{e.preventDefault();navigate(to);};return a;};
     crumbsBox.appendChild(mk(owner+'/'+repo,''));
-    let acc=''; segs.forEach(s=>{acc+=(acc?'/':'')+s;const sep=el('span','sep',' / ');crumbsBox.appendChild(sep);crumbsBox.appendChild(mk(s,acc));});
+    let acc='';segs.forEach(s=>{acc+=(acc?'/':'')+s;crumbsBox.appendChild(el('span','sep',' / '));crumbsBox.appendChild(mk(s,acc));});
   }
 
-  function navigate(to){ basePath=to||''; history.replaceState(null,'',withParams({path:basePath,file:''})); list(basePath); }
-  function withParams(extra){const u=new URL(location.href);u.searchParams.set('owner',owner);u.searchParams.set('repo',repo);u.searchParams.set('ref',ref);if(extra.path!==undefined)u.searchParams.set('path',extra.path);if(extra.file!==undefined)u.searchParams.set('file',extra.file);return u.toString();}
+  function navigate(to){ basePath=to||''; history.replaceState(null,'',location.pathname+'?owner='+owner+'&repo='+repo+'&ref='+ref+'&path='+basePath); list(basePath); }
 
-  async function openPreview(relPath,silent=false){
-    if(isSelf(relPath)){ hint.textContent='このページ自身は埋め込み表示できません。新しいタブで開きます。'; window.open(pagesUrl(relPath),'_blank'); return; }
+  function openPreview(relPath){
+    if(isSelf(relPath)){
+      hint.textContent='このページ自身は表示できません。新しいタブで開きます。';
+      window.open(pagesUrl(relPath),'_blank');
+      return;
+    }
     iframe.src=pagesUrl(relPath);
-    hint.innerHTML=`<a href="${pagesUrl(relPath)}" target="_blank">Open on Pages</a> |
-                    <a href="${blobUrl(relPath)}" target="_blank">Open on GitHub</a> |
-                    <a href="https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${encPath(relPath)}" target="_blank">Raw</a>`;
+    hint.innerHTML=`<a href="${pagesUrl(relPath)}" target="_blank">Open on Pages</a> | 
+                    <a href="https://github.com/${owner}/${repo}/blob/${ref}/${relPath}" target="_blank">Open on GitHub</a> | 
+                    <a href="https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${relPath}" target="_blank">Raw</a>`;
   }
 
   let currentItems=[];

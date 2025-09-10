@@ -28,6 +28,7 @@
   .btn{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer}
   .btn:hover{background:#f5f5f5}
   .right{display:flex;gap:8px}
+  .disabled{opacity:.5;pointer-events:none}
 </style>
 
 <div class="wrap">
@@ -54,261 +55,117 @@
 
 <script>
 (function(){
-  // ---------- config & env detection ----------
   const url = new URL(location.href);
   const qs  = (k, d='') => url.searchParams.get(k) ?? d;
 
-  // Auto-detect Pages <user>.github.io/<repo>/...
   let owner = qs('owner') || qs('user') || '';
   let repo  = qs('repo')  || '';
   const isPages = /\.github\.io$/.test(location.hostname);
   if (isPages && !owner) owner = location.hostname.split('.')[0];
   if (isPages && !repo)  repo  = location.pathname.split('/').filter(Boolean)[0] || '';
-
-  // Allow "user/repo" in ?repo=
   if (!owner && repo.includes('/')) [owner, repo] = repo.split('/');
-
-  // Sensible defaults（可改成你的仓库）
   if (!owner) owner = 'the-tsukasa';
   if (!repo)  repo  = 'my-preview';
 
   const ref  = qs('ref','main');
   let basePath = qs('path','');
   if (basePath === '/') basePath = '';
-  const fileParam = qs('file',''); // 深链接到某个文件（当前目录下）
+  const fileParam = qs('file','');
 
   const pagesBase = `https://${owner}.github.io/${repo}/`;
   const blobBase  = `https://github.com/${owner}/${repo}/blob/${ref}/`;
   const apiBase   = `https://api.github.com/repos/${owner}/${repo}/contents/`;
 
-  // helpers
   const $ = (s)=>document.querySelector(s);
   const listBox = $('#list'), crumbsBox = $('#crumbs'), input = $('#q');
   const iframe = $('#view'), hint = $('#hint');
   const copyBtn = $('#copyLink');
 
-  // Encode per segment
   const encPath = (p)=>p.split('/').filter(Boolean).map(encodeURIComponent).join('/');
   const apiUrl   = (p='') => `${apiBase}${encPath(p)}?ref=${encodeURIComponent(ref)}`;
   const pagesUrl = (p='') => pagesBase + encPath(p);
   const blobUrl  = (p='') => `https://github.com/${owner}/${repo}/blob/${ref}/${p}`;
 
-  // ---------- UI state ----------
   $('#openRepo').onclick = ()=> window.open(`https://github.com/${owner}/${repo}`, '_blank');
   $('#up').onclick = ()=> { if (!basePath) return; const parent = basePath.split('/').filter(Boolean).slice(0,-1).join('/'); navigate(parent); };
   input.oninput = ()=> filterList(input.value.trim().toLowerCase());
-  copyBtn.onclick = async ()=>{
-    await navigator.clipboard.writeText(location.href);
-    copyBtn.textContent = 'Copied';
-    setTimeout(()=>copyBtn.textContent='Copy', 1200);
-  };
+  copyBtn.onclick = async ()=>{ await navigator.clipboard.writeText(location.href); copyBtn.textContent='Copied'; setTimeout(()=>copyBtn.textContent='Copy', 1200); };
 
-  function setCrumbs(path){
-    crumbsBox.innerHTML = '';
-    const segs = path.split('/').filter(Boolean);
-    const mk = (text, to) => {
-      const a = document.createElement('a');
-      a.textContent = text || (owner + '/' + repo);
-      a.href = '#'; a.onclick = (e)=>{e.preventDefault(); navigate(to);}
-      return a;
-    };
-    crumbsBox.appendChild(mk(owner + '/' + repo, ''));
-    let acc = '';
-    segs.forEach((s)=>{
-      acc += (acc?'/':'') + s;
-      const sep = document.createElement('span'); sep.className='sep'; sep.textContent=' / '; crumbsBox.appendChild(sep);
-      crumbsBox.appendChild(mk(s, acc));
-    });
+  function isSelf(relPath){
+    const target = new URL(pagesUrl(relPath), location.href);
+    const self   = new URL(location.href);
+    return target.origin === self.origin &&
+           target.pathname.replace(/\/+$/,'') === self.pathname.replace(/\/+$/,'');
   }
-
-  // ---------- listing ----------
-  let currentItems = []; // for filter
-  let focusIdx = 0;      // keyboard nav index
 
   async function list(path=''){
     setCrumbs(path);
     listBox.textContent = 'Loading…';
     hint.textContent = '';
-
     try {
       const res = await fetch(apiUrl(path));
-      const remaining = res.headers.get('X-RateLimit-Remaining');
       const data = await res.json();
-
-      if (res.status === 403 && data && /rate limit/i.test(data.message||'')) {
-        listBox.innerHTML = '';
-        listBox.appendChild(el('div','muted','GitHub API 限频（匿名每小时 60 次）。稍后再试或启用已发布的 Pages 预览。'));
-        return;
-      }
-      if (!Array.isArray(data)) {
-        listBox.textContent = '读取失败：' + (data && data.message || res.statusText);
-        return;
-      }
-
-      hint.textContent = `API remaining: ${remaining ?? '—'}`;
-
-      // sort: dirs first
+      if (!Array.isArray(data)) { listBox.textContent = '读取失败'; return; }
       const dirs  = data.filter(i=>i.type==='dir').sort((a,b)=>a.name.localeCompare(b.name));
       const files = data.filter(i=>i.type==='file').sort((a,b)=>a.name.localeCompare(b.name));
-      currentItems = [...dirs, ...files];
-
-      renderList(currentItems, path);
-
-      // deep link: open ?file=
+      renderList([...dirs,...files], path);
       if (fileParam) {
-        const target = files.find(f=>f.name===fileParam);
-        if (target) openPreview(join(path, target.name), true);
+        const p = join(path,fileParam);
+        if (!isSelf(p)) openPreview(p,true);
       } else {
-        // auto-open index.html / readme.html
         const idx = files.find(f=>/^(index|readme)\.html?$/i.test(f.name));
-        if (idx) openPreview(join(path, idx.name), true);
+        if (idx && !isSelf(join(path, idx.name))) openPreview(join(path, idx.name),true);
       }
-    } catch (e) {
-      listBox.textContent = '读取异常：' + e;
-    }
+    } catch(e){ listBox.textContent = '读取异常：'+e; }
   }
 
-  function el(tag, cls, text){
-    const n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text != null) n.textContent = text;
-    return n;
-  }
   function join(a,b){ return (a? a.replace(/\/+$/,'') + '/' : '') + b; }
+  function el(tag,cls,text){ const n=document.createElement(tag); if(cls) n.className=cls; if(text!=null) n.textContent=text; return n; }
 
-  function renderList(items, path){
-    listBox.innerHTML = '';
-    if (!items.length){ listBox.appendChild(el('div','muted','（空目录）')); return; }
-
-    items.forEach((it,i)=>{
-      const a = document.createElement('a');
-      a.className = 'item';
-      a.href = '#';
-      a.tabIndex = 0;
-      a.dataset.index = i;
-
-      const icon = document.createElement('span');
-      icon.textContent = it.type==='dir' ? '📁' : '📄';
-      a.appendChild(icon);
-
-      const name = document.createElement('span');
-      name.textContent = it.name;
-      a.appendChild(name);
-
-      if (it.type === 'dir') {
-        a.onclick = (e)=>{ e.preventDefault(); navigate(join(path,it.name)); };
-      } else {
-        a.onclick = (e)=>{ e.preventDefault(); openPreview(join(path,it.name)); };
+  function renderList(items,path){
+    listBox.innerHTML='';
+    if(!items.length){ listBox.appendChild(el('div','muted','（空目录）')); return; }
+    items.forEach(it=>{
+      const a=el('a','item');
+      a.href='#';
+      const icon=el('span','', it.type==='dir'?'📁':'📄'); a.appendChild(icon);
+      a.appendChild(el('span','',it.name));
+      const rp=join(path,it.name);
+      if(it.type==='dir'){ a.onclick=(e)=>{e.preventDefault(); navigate(rp);}; }
+      else{
+        if(isSelf(rp)){ a.classList.add('disabled'); a.title='This page cannot preview itself'; }
+        else{ a.onclick=(e)=>{e.preventDefault(); openPreview(rp);}; }
       }
       listBox.appendChild(a);
     });
-
-    // reset focus index
-    focusIdx = 0;
-    focusItem(focusIdx);
   }
 
   function filterList(q){
-    if (!q){ renderList(currentItems, basePath); return; }
-    const ext = q.startsWith('.') ? q : null;
-    const filtered = currentItems.filter(it=>{
-      const name = it.name.toLowerCase();
-      return ext ? name.endsWith(ext) : name.includes(q);
-    });
-    renderList(filtered, basePath);
+    if(!q){ list(basePath); return; }
+    const filtered=currentItems.filter(it=>it.name.toLowerCase().includes(q));
+    renderList(filtered,basePath);
   }
 
-  function navigate(toPath){
-    basePath = toPath || '';
-    history.replaceState(null, '', withParams({path: basePath, file: ''}));
-    list(basePath);
+  function setCrumbs(path){
+    crumbsBox.innerHTML='';
+    const segs=path.split('/').filter(Boolean);
+    const mk=(text,to)=>{const a=el('a','',text||owner+'/'+repo);a.href='#';a.onclick=(e)=>{e.preventDefault();navigate(to);};return a;};
+    crumbsBox.appendChild(mk(owner+'/'+repo,''));
+    let acc=''; segs.forEach(s=>{acc+=(acc?'/':'')+s;const sep=el('span','sep',' / ');crumbsBox.appendChild(sep);crumbsBox.appendChild(mk(s,acc));});
   }
 
-  function withParams(extra){
-    const u = new URL(location.href);
-    if (owner) u.searchParams.set('owner', owner);
-    if (repo)  u.searchParams.set('repo', repo);
-    if (ref)   u.searchParams.set('ref', ref);
-    if (extra.path !== undefined) u.searchParams.set('path', extra.path);
-    if (extra.file !== undefined) u.searchParams.set('file', extra.file);
-    return u.toString();
+  function navigate(to){ basePath=to||''; history.replaceState(null,'',withParams({path:basePath,file:''})); list(basePath); }
+  function withParams(extra){const u=new URL(location.href);u.searchParams.set('owner',owner);u.searchParams.set('repo',repo);u.searchParams.set('ref',ref);if(extra.path!==undefined)u.searchParams.set('path',extra.path);if(extra.file!==undefined)u.searchParams.set('file',extra.file);return u.toString();}
+
+  async function openPreview(relPath,silent=false){
+    if(isSelf(relPath)){ hint.textContent='このページ自身は埋め込み表示できません。新しいタブで開きます。'; window.open(pagesUrl(relPath),'_blank'); return; }
+    iframe.src=pagesUrl(relPath);
+    hint.innerHTML=`<a href="${pagesUrl(relPath)}" target="_blank">Open on Pages</a> |
+                    <a href="${blobUrl(relPath)}" target="_blank">Open on GitHub</a> |
+                    <a href="https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${encPath(relPath)}" target="_blank">Raw</a>`;
   }
 
-  // ---------- preview with Pages-first & smarter fallback ----------
-  async function openPreview(relPath, silent=false){
-    // update deep link (?file=)
-    const fname = relPath.split('/').pop();
-    history.replaceState(null, '', withParams({path: basePath, file: fname}));
-
-    const pages = pagesUrl(relPath);
-    const fallback = 'https://htmlpreview.github.io/?' + encodeURI(blobUrl(relPath));
-
-    if (!silent) hint.textContent = 'Loading preview…';
-    let done = false;
-
-    // fallback timer（页面空白也切换）
-    const timer = setTimeout(()=>{
-      if (!done) {
-        iframe.src = fallback;
-        hint.textContent = '（使用 htmlpreview 回退渲染）';
-      }
-    }, 3000);
-
-    try {
-      const head = await fetch(pages, {method:'HEAD', mode:'cors'});
-      if (head.ok) {
-        iframe.src = pages;
-      } else {
-        iframe.src = fallback;
-        hint.textContent = '（使用 htmlpreview 回退渲染）';
-      }
-    } catch {
-      iframe.src = fallback;
-      hint.textContent = '（使用 htmlpreview 回退渲染）';
-    }
-
-    iframe.onload = ()=>{
-      done = true; clearTimeout(timer);
-      // 操作链接（安全创建）
-      setHintLinks(relPath, pages, fallback);
-    };
-  }
-
-  function setHintLinks(relPath, pages, fallback){
-    hint.innerHTML = '';
-    const wrap = document.createElement('div');
-    const add = (text, href)=>{
-      const a = document.createElement('a');
-      a.textContent = text; a.href = href; a.target = '_blank'; a.rel = 'noopener';
-      a.style.marginRight = '10px';
-      wrap.appendChild(a);
-    };
-    add('Open on Pages', pages);
-    add('Open on GitHub', blobUrl(relPath));
-    // raw 直链（只显示，不用于 iframe 渲染）
-    add('Raw', `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${encPath(relPath)}`);
-    hint.appendChild(wrap);
-  }
-
-  // ---------- keyboard navigation ----------
-  function itemsEls(){ return Array.from(listBox.querySelectorAll('a.item')); }
-  function focusItem(i){
-    const els = itemsEls();
-    if (!els.length) return;
-    focusIdx = Math.max(0, Math.min(i, els.length-1));
-    els[focusIdx].focus();
-  }
-  document.addEventListener('keydown', (e)=>{
-    if (e.target.tagName === 'INPUT') return;
-    const els = itemsEls(); if (!els.length) return;
-
-    if (e.key === 'ArrowDown'){ e.preventDefault(); focusItem(focusIdx+1); }
-    else if (e.key === 'ArrowUp'){ e.preventDefault(); focusItem(focusIdx-1); }
-    else if (e.key === 'Enter'){ e.preventDefault(); els[focusIdx].click(); }
-    else if (e.key === 'Backspace'){ e.preventDefault(); $('#up').click(); }
-  });
-
-  // boot
+  let currentItems=[];
   list(basePath);
 })();
 </script>

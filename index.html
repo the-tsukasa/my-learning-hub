@@ -1,0 +1,42 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>My Preview</title>
+<style>
+  body{margin:0;font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
+  .wrap{display:grid;grid-template-columns:280px 1fr;height:100vh}
+  aside{border-right:1px solid #e5e7eb;padding:10px;overflow:auto}
+  main{height:100vh}
+  #view{width:100%;height:100%;border:0}
+  a{display:block;color:#111;text-decoration:none;padding:6px 8px;border-radius:8px}
+  a:hover{background:#f5f5f5}
+  .muted{color:#6b7280;font-size:12px;margin:6px 8px}
+</style>
+<div class="wrap">
+  <aside>
+    <strong>Contents</strong>
+    <div id="list" class="muted">Loading…</div>
+  </aside>
+  <main><iframe id="view" title="preview"></iframe></main>
+</div>
+<script>
+const OWNER="the-tsukasa", REPO="my-preview", BRANCH="main", BASE_PATH=""; // 根目录
+const api = (p="") => `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(p)}?ref=${BRANCH}`;
+const pagesBase = `https://${OWNER}.github.io/${REPO}/`;
+
+async function list(path=BASE_PATH){
+  const box=document.getElementById("list"); box.innerHTML="";
+  const segs=path.split("/").filter(Boolean);
+  if(segs.length){ const parent=segs.slice(0,-1).join("/"); const back=document.createElement("a");
+    back.textContent="⬅ 上一级"; back.href="#"; back.onclick=e=>{e.preventDefault();list(parent)}; box.appendChild(back);}
+  const res=await fetch(api(path)); const data=await res.json();
+  if(!Array.isArray(data)){ box.textContent="读取失败"; return; }
+  const dirs=data.filter(i=>i.type==="dir").sort((a,b)=>a.name.localeCompare(b.name));
+  const files=data.filter(i=>i.type==="file").sort((a,b)=>a.name.localeCompare(b.name));
+  for(const d of dirs){ const a=document.createElement("a"); a.textContent="📁 "+d.name; a.href="#";
+    a.onclick=e=>{e.preventDefault();list((path?path+"/":"")+d.name)}; box.appendChild(a); }
+  for(const f of files){ const a=document.createElement("a"); a.textContent="📄 "+f.name; a.href=pagesBase+(path?path+"/":"")+f.name;
+    a.onclick=e=>{e.preventDefault(); document.getElementById("view").src=pagesBase+(path?path+"/":"")+f.name; }; box.appendChild(a); }
+  if(!dirs.length && !files.length){ const em=document.createElement("div"); em.className="muted"; em.textContent="（空目录）"; box.appendChild(em); }
+}
+list();
+</script>

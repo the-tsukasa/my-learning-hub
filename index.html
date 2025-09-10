@@ -25,7 +25,10 @@
   <aside>
     <div class="top">
       <strong id="title">Contents</strong>
-      <button id="openGitHub" class="btn">GitHub</button>
+      <div style="display:flex;gap:6px">
+        <button id="btnOverview" class="btn" style="display:none">Overview</button>
+        <button id="openGitHub" class="btn">GitHub</button>
+      </div>
     </div>
     <div id="list" class="muted">Loading…</div>
   </aside>
@@ -44,12 +47,15 @@
   if(path==='/') path='';
 
   const $=(s)=>document.querySelector(s);
-  const listBox=$('#list'),iframe=$('#view'),titleBox=$('#title'),btnGitHub=$('#openGitHub');
+  const listBox=$('#list'),iframe=$('#view'),
+        titleBox=$('#title'),btnGitHub=$('#openGitHub'),
+        btnOverview=$('#btnOverview');
 
   // ---- repo 列表模式 ----
   async function listRepos(){
     titleBox.textContent=owner+"'s repositories";
     listBox.textContent='Loading…';
+    btnOverview.style.display="none"; // 不显示 Overview 按钮
     try{
       const res=await fetch(`https://api.github.com/users/${owner}/repos?per_page=100`);
       const data=await res.json();
@@ -70,6 +76,7 @@
   async function listFiles(path=''){
     titleBox.textContent=`${owner}/${repo}`;
     listBox.textContent='Loading…';
+    btnOverview.style.display="inline-block"; // 显示 Overview 按钮
     try{
       const res=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`);
       const data=await res.json();
@@ -99,6 +106,16 @@
   function openPreview(relPath){
     iframe.src=`https://${owner}.github.io/${repo}/${relPath}`;
   }
+
+  // ---- Overview 按钮事件 ----
+  btnOverview.onclick=()=>{
+    const u=new URL(location.href);
+    u.searchParams.set("owner", owner);
+    u.searchParams.delete("repo");
+    u.searchParams.delete("path");
+    u.searchParams.delete("file");
+    location.href=u.toString();
+  };
 
   // ---- 主入口 ----
   if(!repo){ // repo 列表模式

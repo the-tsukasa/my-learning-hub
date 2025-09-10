@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>デジタルフォトフレーム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .photo-frame {
+            position: relative;
+            width: 80vw;
+            height: 80vh;
+            max-width: 1200px;
+            max-height: 800px;
+            background-color: #fff;
+            padding: 1rem;
+            box-shadow: 
+                0 15px 30px rgba(0, 0, 0, 0.5),
+                0 0 0 5px #2a2a2a;
+            border-radius: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .photo-frame > img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            opacity: 0;
+            position: absolute;
+            z-index: 1;
+            background-color: black;
+        }
+        .photo-frame > img.active {
+            opacity: 1;
+            transition: opacity 2s ease-in-out;
+        }
+
+        /* 10種類の新しいアニメーションスタイル */
+        .fade-out { animation: fadeOut 2s forwards; }
+        .slide-right { animation: slideRight 1.5s forwards; }
+        .slide-left { animation: slideLeft 1.5s forwards; }
+        .slide-up { animation: slideUp 1.5s forwards; }
+        .slide-down { animation: slideDown 1.5s forwards; }
+        .zoom-in { animation: zoomIn 1.5s forwards; }
+        .zoom-out { animation: zoomOut 1.5s forwards; }
+        .rotate-fade { animation: rotateFade 2s forwards; }
+        .blur-in { animation: blurIn 2s forwards; }
+        .blur-out { animation: blurOut 2s forwards; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        @keyframes slideRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
+        @keyframes slideLeft { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+        @keyframes slideUp { from { transform: translateY(0); } to { transform: translateY(-100%); } }
+        @keyframes slideDown { from { transform: translateY(0); } to { transform: translateY(100%); } }
+        @keyframes zoomIn { from { transform: scale(1); } to { transform: scale(1.2); opacity: 0; } }
+        @keyframes zoomOut { from { transform: scale(1.2); } to { transform: scale(1); } }
+        @keyframes rotateFade { from { transform: rotate(0deg) scale(1); opacity: 1; } to { transform: rotate(45deg) scale(0.5); opacity: 0; } }
+        @keyframes blurIn { from { filter: blur(0px); opacity: 1; } to { filter: blur(10px); opacity: 0; } }
+        @keyframes blurOut { from { filter: blur(10px); opacity: 0; } to { filter: blur(0px); opacity: 1; } }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div id="photoFrame" class="photo-frame">
+        <!-- 画像はJavaScriptで動的に追加されます -->
+    </div>
+
+    <script>
+        const photoFrame = document.getElementById('photoFrame');
+
+        // デフォルトの画像URLのリスト
+        let images = [
+            'https://picsum.photos/1200/800?random=1',
+            'https://picsum.photos/1200/800?random=2',
+            'https://picsum.photos/1200/800?random=3',
+            'https://picsum.photos/1200/800?random=4',
+            'https://picsum.photos/1200/800?random=5',
+            'https://picsum.photos/1200/800?random=6'
+        ];
+        
+        const animationEffects = [
+            'fade-out', 'slide-right', 'slide-left', 'slide-up', 'slide-down', 
+            'zoom-in', 'zoom-out', 'rotate-fade', 'blur-in', 'blur-out'
+        ];
+
+        let currentImageIndex = 0;
+        let slideInterval;
+        
+        function updateImageDisplay() {
+            const oldImageElement = photoFrame.querySelector('img.active');
+            
+            // ランダムなアニメーション効果を選択
+            const randomEffect = animationEffects[Math.floor(Math.random() * animationEffects.length)];
+
+            // 次の画像を事前にロード
+            const nextImageUrl = images[currentImageIndex];
+            const nextImageElement = document.createElement('img');
+            nextImageElement.src = nextImageUrl;
+            nextImageElement.alt = `Photo ${currentImageIndex + 1}`;
+            nextImageElement.classList.add('active');
+
+            if (oldImageElement) {
+                // 古い画像にランダムなアニメーションを適用
+                oldImageElement.classList.add(randomEffect);
+                oldImageElement.addEventListener('animationend', () => {
+                    oldImageElement.remove();
+                    // 新しい画像をアクティブにする
+                    photoFrame.appendChild(nextImageElement);
+                }, { once: true });
+            } else {
+                photoFrame.appendChild(nextImageElement);
+            }
+
+            currentImageIndex = (currentImageIndex + 1) % images.length;
+        }
+
+        function startSlideshow() {
+            // 最初の画像をすぐに表示
+            const firstImage = document.createElement('img');
+            firstImage.src = images[0];
+            firstImage.alt = `Photo 1`;
+            firstImage.classList.add('active');
+            photoFrame.appendChild(firstImage);
+            currentImageIndex = 1;
+
+            // 5秒ごとにスライドショーを開始
+            slideInterval = setInterval(updateImageDisplay, 5000);
+        }
+
+        window.addEventListener('load', startSlideshow);
+    </script>
+
+</body>
+</html>

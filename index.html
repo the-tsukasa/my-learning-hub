@@ -8,10 +8,6 @@
   html,body{height:100%;margin:0;background:var(--bg);
     font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
   .wrap{display:grid;grid-template-columns:300px 1fr;height:100vh}
-  @media (max-width: 900px){
-    .wrap{grid-template-columns:1fr;grid-template-rows:46vh 54vh}
-    aside{border-right:none;border-bottom:1px solid var(--border)}
-  }
   aside{border-right:1px solid var(--border);padding:12px;overflow:auto}
   main{height:100vh}
   #view{width:100%;height:100%;border:0;background:#fff}
@@ -19,11 +15,6 @@
     padding:6px 8px;border-radius:8px;outline:none}
   a.item:hover, a.item:focus{background:#f5f5f5}
   .muted{color:var(--muted);font-size:12px;margin:6px 8px}
-  .row{display:flex;gap:8px;align-items:center;margin:6px 0 10px}
-  input[type="search"]{flex:1 1 auto;padding:6px 8px;border:1px solid var(--border);border-radius:8px}
-  .crumbs{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
-  .crumbs a{color:#2563eb;text-decoration:none}
-  .crumbs span.sep{color:#9ca3af}
   .top{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px}
   .btn{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer}
   .btn:hover{background:#f5f5f5}
@@ -33,126 +24,89 @@
 <div class="wrap">
   <aside>
     <div class="top">
-      <strong>Contents</strong>
-      <button id="openRepo" class="btn" title="Open on GitHub">GitHub</button>
+      <strong id="title">Contents</strong>
+      <button id="openGitHub" class="btn">GitHub</button>
     </div>
-    <div class="row">
-      <input id="q" type="search" placeholder="Filter files…（例：.html）">
-      <button id="up" class="btn" title="Up">⬆</button>
-    </div>
-    <div id="crumbs" class="crumbs"></div>
     <div id="list" class="muted">Loading…</div>
-    <div id="hint" class="muted" style="margin-top:10px"></div>
   </aside>
-  <main>
-    <iframe id="view" title="preview" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin"></iframe>
-  </main>
+  <main><iframe id="view" title="preview"></iframe></main>
 </div>
 
 <script>
 (function(){
-  const url = new URL(location.href);
-  const qs  = (k, d='') => url.searchParams.get(k) ?? d;
+  const url=new URL(location.href);
+  const qs=(k,d='')=>url.searchParams.get(k) ?? d;
 
-  let owner = qs('owner') || qs('user') || '';
-  let repo  = qs('repo')  || '';
-  if (!owner) owner = 'the-tsukasa';
-  if (!repo)  repo  = 'my-preview';
-  const ref  = qs('ref','main');
-  let basePath = qs('path','');
-  if (basePath === '/') basePath = '';
-  const fileParam = qs('file','');
+  let owner=qs('owner')||'the-tsukasa';
+  let repo=qs('repo')||'';
+  const ref=qs('ref','main');
+  let path=qs('path','');
+  if(path==='/') path='';
 
-  const pagesBase = `https://${owner}.github.io/${repo}/`;
-  const apiBase   = `https://api.github.com/repos/${owner}/${repo}/contents/`;
+  const $=(s)=>document.querySelector(s);
+  const listBox=$('#list'),iframe=$('#view'),titleBox=$('#title'),btnGitHub=$('#openGitHub');
 
-  const $ = (s)=>document.querySelector(s);
-  const listBox = $('#list'), crumbsBox = $('#crumbs'), input = $('#q');
-  const iframe = $('#view'), hint = $('#hint');
-
-  const encPath = (p)=>p.split('/').filter(Boolean).map(encodeURIComponent).join('/');
-  const apiUrl   = (p='') => `${apiBase}${encPath(p)}?ref=${encodeURIComponent(ref)}`;
-  const pagesUrl = (p='') => pagesBase + encPath(p);
-
-  $('#openRepo').onclick = ()=> window.open(`https://github.com/${owner}/${repo}`, '_blank');
-  $('#up').onclick = ()=> { if (!basePath) return; const parent = basePath.split('/').filter(Boolean).slice(0,-1).join('/'); navigate(parent); };
-  input.oninput = ()=> filterList(input.value.trim().toLowerCase());
-
-  // ---- 防止自我预览 ----
-  function isSelf(relPath){
-    const target = new URL(pagesUrl(relPath), location.href);
-    const self   = new URL(location.href);
-    return target.origin === self.origin &&
-           target.pathname.replace(/\/+$/,'') === self.pathname.replace(/\/+$/,'') &&
-           target.search === self.search;  // 搜索参数也要一致
+  // ---- repo 列表模式 ----
+  async function listRepos(){
+    titleBox.textContent=owner+"'s repositories";
+    listBox.textContent='Loading…';
+    try{
+      const res=await fetch(`https://api.github.com/users/${owner}/repos?per_page=100`);
+      const data=await res.json();
+      if(!Array.isArray(data)){ listBox.textContent='Error'; return; }
+      listBox.innerHTML='';
+      data.sort((a,b)=>a.name.localeCompare(b.name));
+      data.forEach(r=>{
+        const a=document.createElement('a');
+        a.className='item';
+        a.textContent='📁 '+r.name;
+        a.href=`?owner=${owner}&repo=${r.name}&ref=${ref}`;
+        listBox.appendChild(a);
+      });
+    }catch(e){ listBox.textContent='异常：'+e; }
   }
 
-  async function list(path=''){
-    setCrumbs(path);
-    listBox.textContent = 'Loading…';
-    try {
-      const res = await fetch(apiUrl(path));
-      const data = await res.json();
-      if (!Array.isArray(data)) { listBox.textContent='读取失败'; return; }
-      const dirs  = data.filter(i=>i.type==='dir').sort((a,b)=>a.name.localeCompare(b.name));
-      const files = data.filter(i=>i.type==='file').sort((a,b)=>a.name.localeCompare(b.name));
-      renderList([...dirs,...files], path);
-      if (fileParam) {
-        const p = join(path,fileParam);
-        if (!isSelf(p)) openPreview(p,true);
-      }
-    } catch(e){ listBox.textContent='异常：'+e; }
-  }
-
-  function join(a,b){ return (a? a.replace(/\/+$/,'') + '/' : '') + b; }
-  function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;}
-
-  function renderList(items,path){
-    listBox.innerHTML='';
-    if(!items.length){ listBox.appendChild(el('div','muted','（空目录）')); return; }
-    items.forEach(it=>{
-      const a=el('a','item');
-      a.href='#';
-      a.appendChild(el('span','', it.type==='dir'?'📁':'📄'));
-      a.appendChild(el('span','',it.name));
-      const rp=join(path,it.name);
-      if(it.type==='dir'){
-        a.onclick=(e)=>{e.preventDefault(); navigate(rp);};
-      }else{
-        if(/^index\.html?$/i.test(it.name)){ // 禁止点击 index.html
-          a.classList.add('disabled');
-          a.title='This index.html cannot preview itself';
+  // ---- 文件浏览模式 ----
+  async function listFiles(path=''){
+    titleBox.textContent=`${owner}/${repo}`;
+    listBox.textContent='Loading…';
+    try{
+      const res=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`);
+      const data=await res.json();
+      if(!Array.isArray(data)){ listBox.textContent='Error'; return; }
+      listBox.innerHTML='';
+      const dirs=data.filter(i=>i.type==='dir').sort((a,b)=>a.name.localeCompare(b.name));
+      const files=data.filter(i=>i.type==='file').sort((a,b)=>a.name.localeCompare(b.name));
+      [...dirs,...files].forEach(it=>{
+        const a=document.createElement('a');
+        a.className='item';
+        a.textContent=(it.type==='dir'?'📁 ':'📄 ')+it.name;
+        a.href='#';
+        if(it.type==='dir'){
+          a.onclick=(e)=>{e.preventDefault();listFiles(it.path);};
         }else{
-          a.onclick=(e)=>{e.preventDefault(); openPreview(rp);};
+          if(/^index\.html?$/i.test(it.name)){
+            a.classList.add('disabled');
+          }else{
+            a.onclick=(e)=>{e.preventDefault();openPreview(it.path);};
+          }
         }
-      }
-      listBox.appendChild(a);
-    });
+        listBox.appendChild(a);
+      });
+    }catch(e){ listBox.textContent='异常：'+e; }
   }
-
-  function setCrumbs(path){
-    crumbsBox.innerHTML='';
-    const segs=path.split('/').filter(Boolean);
-    const mk=(text,to)=>{const a=el('a','',text||owner+'/'+repo);a.href='#';a.onclick=(e)=>{e.preventDefault();navigate(to);};return a;};
-    crumbsBox.appendChild(mk(owner+'/'+repo,''));
-    let acc='';segs.forEach(s=>{acc+=(acc?'/':'')+s;crumbsBox.appendChild(el('span','sep',' / '));crumbsBox.appendChild(mk(s,acc));});
-  }
-
-  function navigate(to){ basePath=to||''; history.replaceState(null,'',location.pathname+'?owner='+owner+'&repo='+repo+'&ref='+ref+'&path='+basePath); list(basePath); }
 
   function openPreview(relPath){
-    if(isSelf(relPath)){
-      hint.textContent='このページ自身は表示できません。新しいタブで開きます。';
-      window.open(pagesUrl(relPath),'_blank');
-      return;
-    }
-    iframe.src=pagesUrl(relPath);
-    hint.innerHTML=`<a href="${pagesUrl(relPath)}" target="_blank">Open on Pages</a> | 
-                    <a href="https://github.com/${owner}/${repo}/blob/${ref}/${relPath}" target="_blank">Open on GitHub</a> | 
-                    <a href="https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${relPath}" target="_blank">Raw</a>`;
+    iframe.src=`https://${owner}.github.io/${repo}/${relPath}`;
   }
 
-  let currentItems=[];
-  list(basePath);
+  // ---- 主入口 ----
+  if(!repo){ // repo 列表模式
+    btnGitHub.onclick=()=>window.open(`https://github.com/${owner}?tab=repositories`,'_blank');
+    listRepos();
+  }else{ // 文件浏览模式
+    btnGitHub.onclick=()=>window.open(`https://github.com/${owner}/${repo}`,'_blank');
+    listFiles(path);
+  }
 })();
 </script>

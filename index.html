@@ -1,42 +1,222 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>My Preview</title>
+<title>Repo Explorer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  body{margin:0;font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
-  .wrap{display:grid;grid-template-columns:280px 1fr;height:100vh}
-  aside{border-right:1px solid #e5e7eb;padding:10px;overflow:auto}
+  :root{--border:#e5e7eb;--muted:#6b7280;--bg:#fff}
+  *{box-sizing:border-box} html,body{height:100%;margin:0;background:var(--bg);
+    font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
+  .wrap{display:grid;grid-template-columns:300px 1fr;height:100vh}
+  aside{border-right:1px solid var(--border);padding:12px;overflow:auto}
   main{height:100vh}
-  #view{width:100%;height:100%;border:0}
-  a{display:block;color:#111;text-decoration:none;padding:6px 8px;border-radius:8px}
-  a:hover{background:#f5f5f5}
-  .muted{color:#6b7280;font-size:12px;margin:6px 8px}
+  #view{width:100%;height:100%;border:0;background:#fff}
+  a.item{display:flex;gap:8px;align-items:center;color:#111;text-decoration:none;
+    padding:6px 8px;border-radius:8px}
+  a.item:hover{background:#f5f5f5}
+  .muted{color:var(--muted);font-size:12px;margin:6px 8px}
+  .row{display:flex;gap:8px;align-items:center;margin:6px 0 10px}
+  input[type="search"]{flex:1 1 auto;padding:6px 8px;border:1px solid var(--border);border-radius:8px}
+  .crumbs{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+  .crumbs a{color:#2563eb;text-decoration:none}
+  .crumbs span.sep{color:#9ca3af}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .btn{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer}
+  .btn:hover{background:#f5f5f5}
 </style>
+
 <div class="wrap">
   <aside>
-    <strong>Contents</strong>
+    <div class="top">
+      <strong>Contents</strong>
+      <button id="openRepo" class="btn" title="Open on GitHub">GitHub</button>
+    </div>
+    <div class="row">
+      <input id="q" type="search" placeholder="Filter files…">
+      <button id="up" class="btn" title="Up">⬆</button>
+    </div>
+    <div id="crumbs" class="crumbs"></div>
     <div id="list" class="muted">Loading…</div>
+    <div id="hint" class="muted" style="margin-top:10px"></div>
   </aside>
-  <main><iframe id="view" title="preview"></iframe></main>
+  <main><iframe id="view" title="preview" referrerpolicy="no-referrer"></iframe></main>
 </div>
-<script>
-const OWNER="the-tsukasa", REPO="my-preview", BRANCH="main", BASE_PATH=""; // 根目录
-const api = (p="") => `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(p)}?ref=${BRANCH}`;
-const pagesBase = `https://${OWNER}.github.io/${REPO}/`;
 
-async function list(path=BASE_PATH){
-  const box=document.getElementById("list"); box.innerHTML="";
-  const segs=path.split("/").filter(Boolean);
-  if(segs.length){ const parent=segs.slice(0,-1).join("/"); const back=document.createElement("a");
-    back.textContent="⬅ 上一级"; back.href="#"; back.onclick=e=>{e.preventDefault();list(parent)}; box.appendChild(back);}
-  const res=await fetch(api(path)); const data=await res.json();
-  if(!Array.isArray(data)){ box.textContent="读取失败"; return; }
-  const dirs=data.filter(i=>i.type==="dir").sort((a,b)=>a.name.localeCompare(b.name));
-  const files=data.filter(i=>i.type==="file").sort((a,b)=>a.name.localeCompare(b.name));
-  for(const d of dirs){ const a=document.createElement("a"); a.textContent="📁 "+d.name; a.href="#";
-    a.onclick=e=>{e.preventDefault();list((path?path+"/":"")+d.name)}; box.appendChild(a); }
-  for(const f of files){ const a=document.createElement("a"); a.textContent="📄 "+f.name; a.href=pagesBase+(path?path+"/":"")+f.name;
-    a.onclick=e=>{e.preventDefault(); document.getElementById("view").src=pagesBase+(path?path+"/":"")+f.name; }; box.appendChild(a); }
-  if(!dirs.length && !files.length){ const em=document.createElement("div"); em.className="muted"; em.textContent="（空目录）"; box.appendChild(em); }
-}
-list();
+<script>
+(function(){
+  // ---------- config & env detection ----------
+  const url = new URL(location.href);
+  const qs  = (k, d='') => url.searchParams.get(k) ?? d;
+
+  // Auto-detect Pages <user>.github.io/<repo>/...
+  let owner = qs('owner') || qs('user') || '';
+  let repo  = qs('repo')  || '';
+  const isPages = /\.github\.io$/.test(location.hostname);
+  if (isPages && !owner) owner = location.hostname.split('.')[0];
+  if (isPages && !repo)  repo  = location.pathname.split('/').filter(Boolean)[0] || '';
+
+  // Allow "user/repo" form
+  if (!owner && repo.includes('/')) [owner, repo] = repo.split('/');
+  if (!owner) owner = 'the-tsukasa';   // 备用默认
+  if (!repo)  repo  = 'my-preview';    // 备用默认
+
+  const ref  = qs('ref','main');
+  let basePath = qs('path',''); // sub-folder
+  if (basePath === '/') basePath = '';
+
+  const pagesBase = `https://${owner}.github.io/${repo}/`;
+  const blobBase  = `https://github.com/${owner}/${repo}/blob/${ref}/`;
+  const apiBase   = `https://api.github.com/repos/${owner}/${repo}/contents/`;
+
+  // helpers
+  const $ = (s)=>document.querySelector(s);
+  const listBox = $('#list'), crumbsBox = $('#crumbs'), input = $('#q'), iframe = $('#view'), hint = $('#hint');
+
+  // Encode per path segment (avoid a/b -> a%2Fb)
+  const encPath = (p)=>p.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+
+  const apiUrl = (p='') => `${apiBase}${encPath(p)}?ref=${encodeURIComponent(ref)}`;
+  const pagesUrl = (p='') => pagesBase + (p? (p.endsWith('/')?p: p) : '');
+  const blobUrl  = (p='') => blobBase  + p;
+
+  // ---------- UI state ----------
+  $('#openRepo').onclick = ()=> window.open(`https://github.com/${owner}/${repo}`, '_blank');
+  $('#up').onclick = ()=> {
+    if (!basePath) return;
+    const parent = basePath.split('/').filter(Boolean).slice(0,-1).join('/');
+    navigate(parent);
+  };
+  input.oninput = ()=> filterList(input.value.trim().toLowerCase());
+
+  function setCrumbs(path){
+    crumbsBox.innerHTML = '';
+    const segs = path.split('/').filter(Boolean);
+    const mk = (text, to) => {
+      const a = document.createElement('a');
+      a.textContent = text || (owner + '/' + repo);
+      a.href = '#'; a.onclick = (e)=>{e.preventDefault(); navigate(to);}
+      return a;
+    };
+    crumbsBox.appendChild(mk(owner + '/' + repo, ''));
+    let acc = '';
+    segs.forEach((s,i)=>{
+      acc += (acc?'/':'') + s;
+      crumbsBox.appendChild(document.createElement('span')).className='sep';
+      crumbsBox.lastChild.textContent=' / ';
+      crumbsBox.appendChild(mk(s, acc));
+    });
+  }
+
+  // ---------- listing ----------
+  let currentItems = []; // for filter
+  async function list(path=''){
+    setCrumbs(path);
+    listBox.textContent = 'Loading…';
+    hint.textContent = '';
+
+    try {
+      const res = await fetch(apiUrl(path));
+      const data = await res.json();
+
+      if (res.status === 403 && data && /rate limit/i.test(data.message||'')) {
+        listBox.innerHTML = '';
+        listBox.appendChild(el('div','muted', 'GitHub API 限频（匿名每小时 60 次）。稍后再试或改用已开启 Pages 的预览。'));
+        return;
+      }
+      if (!Array.isArray(data)) {
+        listBox.textContent = '读取失败：' + (data && data.message || res.statusText);
+        return;
+      }
+
+      // sort: dirs first
+      const dirs  = data.filter(i=>i.type==='dir').sort((a,b)=>a.name.localeCompare(b.name));
+      const files = data.filter(i=>i.type==='file').sort((a,b)=>a.name.localeCompare(b.name));
+      currentItems = [...dirs, ...files];
+
+      renderList(currentItems, path);
+
+      // auto-open index.html if present in this folder
+      const idx = files.find(f=>/^(index|readme)\.html?$/i.test(f.name));
+      if (idx) openPreview(join(path, idx.name));
+    } catch (e) {
+      listBox.textContent = '读取异常：' + e;
+    }
+  }
+
+  function el(tag, cls, text){
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function join(a,b){ return (a? a.replace(/\/+$/,'') + '/' : '') + b; }
+
+  function renderList(items, path){
+    listBox.innerHTML = '';
+    if (!items.length){ listBox.appendChild(el('div','muted','（空目录）')); return; }
+
+    items.forEach(it=>{
+      const a = document.createElement('a');
+      a.className = 'item';
+      a.href = '#';
+
+      const icon = document.createElement('span');
+      icon.textContent = it.type==='dir' ? '📁' : '📄';
+      a.appendChild(icon);
+
+      const name = document.createElement('span');
+      name.textContent = it.name;
+      a.appendChild(name);
+
+      if (it.type === 'dir') {
+        a.onclick = (e)=>{ e.preventDefault(); navigate(join(path,it.name)); };
+      } else {
+        a.onclick = (e)=>{ e.preventDefault(); openPreview(join(path,it.name)); };
+      }
+      listBox.appendChild(a);
+    });
+  }
+
+  function filterList(q){
+    if (!q){ renderList(currentItems, basePath); return; }
+    const filtered = currentItems.filter(it=> it.name.toLowerCase().includes(q));
+    renderList(filtered, basePath);
+  }
+
+  function navigate(toPath){
+    basePath = toPath || '';
+    history.replaceState(null, '', withParams({path: basePath}));
+    list(basePath);
+  }
+
+  function withParams(extra){
+    const u = new URL(location.href);
+    if (owner) u.searchParams.set('owner', owner);
+    if (repo)  u.searchParams.set('repo', repo);
+    if (ref)   u.searchParams.set('ref', ref);
+    if (extra.path !== undefined) u.searchParams.set('path', extra.path);
+    return u.toString();
+  }
+
+  // ---------- preview with Pages-first & fallback ----------
+  async function openPreview(relPath){
+    const pages = pagesUrl(relPath);
+    const blob  = 'https://htmlpreview.github.io/?' + blobUrl(relPath); // fallback
+
+    hint.textContent = 'Loading preview…';
+    // prefer Pages; test with HEAD first to avoid long iframe errors
+    try {
+      const head = await fetch(pages, {method:'HEAD', mode:'cors'});
+      if (head.ok) {
+        iframe.src = pages;
+        hint.textContent = '';
+        return;
+      }
+    } catch(_) { /* ignore and fallback */ }
+    iframe.src = blob;
+    hint.textContent = '（使用 htmlpreview 回退渲染）';
+  }
+
+  // boot
+  list(basePath);
+})();
 </script>

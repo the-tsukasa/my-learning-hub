@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E‑Ink風 デジタルフォトフレーム（山景アルバム内蔵）</title>
+  <style>
+    :root {
+      --bg: #ffffff;          /* ギャラリー風の白背景 */
+      --fg: #111111;
+      --muted: #5f6368;
+      --accent: #0ea5e9;      /* 空色 */
+      --panel: rgba(255,255,255,0.92);
+      --shadow: 0 28px 60px rgba(0,0,0,.28);
+      --bezel: #111;          /* 黒フチ */
+      --mat: #f7f7f7;         /* 額装の台紙 */
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
+    #app { position: fixed; inset: 0; display: grid; place-items: center; padding: clamp(8px, 2vw, 24px); }
+
+    /* Frame */
+    .frame {
+      position: relative; width: min(94vw, 1400px); height: min(86vh, 860px);
+      background: var(--mat); border-radius: 10px; padding: 14px; box-shadow: var(--shadow);
+      border: 8px solid var(--bezel); /* 内側の黒いフチ */
+      display: grid; place-items: center; overflow: hidden;
+    }
+
+    /* Stage */
+    .stage { position: relative; width: 100%; height: 100%; border-radius: 6px; overflow: hidden; display: grid; place-items: center; background:#000; }
+    .img { position: absolute; width:100%; height:100%; object-fit: cover; opacity: 0; transition: opacity 1s ease; }
+    .img.show { opacity: 1; }
+
+    /* E‑Ink-ish filters */
+    .eink { filter: grayscale(1) contrast(1.12) brightness(.96); }
+    .dither { filter: grayscale(1) contrast(1.25) brightness(.93); }
+
+    /* HUD */
+    .hud { position: absolute; left: 16px; bottom: 14px; display: flex; gap: 12px; align-items: center; color: var(--muted); font-size: 14px; user-select: none; background: rgba(255,255,255,.5); padding: 6px 8px; border-radius: 8px; }
+    .clock { letter-spacing: .4px; }
+    .caption { max-width: 52vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Controls Panel */
+    .panel { position: fixed; right: 16px; top: 16px; width: 360px; max-width: 92vw; background: var(--panel); border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; box-shadow: var(--shadow); backdrop-filter: blur(6px); display: none; }
+    .panel.show { display: block; }
+    .panel h2 { margin: 0 0 8px; font-size: 18px; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; margin: 10px 0; }
+    .row > label { color: var(--muted); font-size: 14px; }
+    .row input[type="number"] { width: 90px; }
+    .btn, .toggle { border: 1px solid #d1d5db; background: #ffffff; color: var(--fg); padding: 8px 12px; border-radius: 10px; cursor: pointer; transition: transform .05s ease, background .2s ease, border-color .2s ease; }
+    .btn:hover, .toggle:hover { background: #f3f4f6; }
+    .btn:active, .toggle:active { transform: translateY(1px); }
+    .toggle.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+    /* Top bar */
+    .topbar { position: fixed; left: 16px; top: 16px; display: flex; gap: 8px; align-items: center; }
+    .iconbtn { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: #ffffff; border: 1px solid #e5e7eb; color: #111; cursor: pointer; box-shadow: 0 6px 12px rgba(0,0,0,.08); }
+    .iconbtn:hover { background: #f3f4f6; }
+
+    /* Dropzone */
+    .dropzone { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 6px; border: 2px dashed #e5e7eb; color: #6b7280; gap: 8px; text-align: center; padding: 24px; pointer-events: auto; background: rgba(255,255,255,.7); }
+    .dropzone.drag { border-color: var(--accent); color: #111; background: rgba(14,165,233,0.08); }
+    .dropzone .upbtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+    /* Fit mode indicator */
+    .fit-cover .img { object-fit: cover; }
+
+    @media (max-width: 640px) { .hud { left: 10px; bottom: 10px; font-size: 12px; } }
+
+    /* ===== Transition effects (10 styles) ===== */
+    .fade-out { animation: fadeOut 2s forwards; }
+    .slide-right { animation: slideRight 1.5s forwards; }
+    .slide-left { animation: slideLeft 1.5s forwards; }
+    .slide-up { animation: slideUp 1.5s forwards; }
+    .slide-down { animation: slideDown 1.5s forwards; }
+    .zoom-in { animation: zoomIn 1.5s forwards; }
+    .zoom-out { animation: zoomOut 1.5s forwards; }
+    .rotate-fade { animation: rotateFade 2s forwards; }
+    .blur-in { animation: blurIn 2s forwards; }
+    .blur-out { animation: blurOut 2s forwards; }
+
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes slideRight { from { transform: translateX(0); } to { transform: translateX(100%); opacity: 0; } }
+    @keyframes slideLeft { from { transform: translateX(0); } to { transform: translateX(-100%); opacity: 0; } }
+    @keyframes slideUp { from { transform: translateY(0); } to { transform: translateY(-100%); opacity: 0; } }
+    @keyframes slideDown { from { transform: translateY(0); } to { transform: translateY(100%); opacity: 0; } }
+    @keyframes zoomIn { from { transform: scale(1); opacity: 1; } to { transform: scale(1.2); opacity: 0; } }
+    @keyframes zoomOut { from { transform: scale(1.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes rotateFade { from { transform: rotate(0deg) scale(1); opacity: 1; } to { transform: rotate(45deg) scale(0.5); opacity: 0; } }
+    @keyframes blurIn { from { filter: blur(0px); opacity: 1; } to { filter: blur(10px); opacity: 0; } }
+    @keyframes blurOut { from { filter: blur(10px); opacity: 0; } to { filter: blur(0px); opacity: 1; } }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="frame" id="frame">
+    <div class="stage" id="stage">
+      <img id="imgA" class="img" alt="" />
+      <img id="imgB" class="img" alt="" />
+      <div id="dropzone" class="dropzone" tabindex="0">
+        <div>
+          <h2 style="margin:0 0 6px;">画像をドラッグ＆ドロップ</h2>
+          <p style="margin:0 0 12px;">または下のボタンから読み込む（複数可）</p>
+          <div class="upbtns">
+            <label class="btn" for="fileInput">画像を選択</label>
+            <input id="fileInput" type="file" accept="image/*" multiple hidden>
+            <label class="btn" for="dirInput">フォルダを選択</label>
+            <input id="dirInput" type="file" accept="image/*" webkitdirectory directory multiple hidden>
+            <button id="mountBtn" class="btn" type="button">山景アルバムを読み込む</button>
+            <button id="netBtn" class="btn" type="button">オンライン風景を追加</button>
+          </div>
+          <p style="margin-top:10px; font-size:12px; color:#6b7280;">ヒント：スペース=再生/一時停止、←/→=前後、F=フルスクリーン、G=E‑Ink風、C=時計、S=設定</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud" id="hud">
+      <span class="clock" id="clock"></span>
+      <span>•</span>
+      <span class="caption" id="caption">画像が未読み込みです</span>
+    </div>
+  </div>
+
+  <div class="topbar">
+    <button id="playBtn" class="iconbtn" title="再生/一時停止 (Space)">▶</button>
+    <button id="prevBtn" class="iconbtn" title="前へ (←)">⟨</button>
+    <button id="nextBtn" class="iconbtn" title="次へ (→)">⟩</button>
+    <button id="fsBtn" class="iconbtn" title="フルスクリーン (F)">⛶</button>
+    <button id="gearBtn" class="iconbtn" title="設定 (S)">⚙</button>
+  </div>
+
+  <aside class="panel" id="panel">
+    <h2>設定</h2>
+    <div class="row">
+      <label>切替インターバル（秒）</label>
+      <input id="interval" type="number" min="2" max="3600" step="1" value="10" />
+    </div>
+    <div class="row">
+      <label>シャッフル</label>
+      <button id="shuffle" class="toggle">OFF</button>
+    </div>
+    <div class="row">
+      <label>E‑Ink風（グレースケール）</label>
+      <button id="eink" class="toggle">OFF</button>
+    </div>
+    <div class="row">
+      <label>擬似ディザ（強め）</label>
+      <button id="dither" class="toggle">OFF</button>
+    </div>
+    <div class="row">
+      <label>キャプション（ファイル名）</label>
+      <button id="showCaption" class="toggle">ON</button>
+    </div>
+    <div class="row">
+      <label>時計</label>
+      <button id="showClock" class="toggle">ON</button>
+    </div>
+    <div class="row">
+      <label>フィットモード</label>
+      <button id="fit" class="toggle">Cover</button>
+    </div>
+    <div class="row">
+      <label>切替アニメーション</label>
+      <button id="animToggle" class="toggle">ON</button>
+    </div>
+    <div class="row">
+      <label>スリープ時に更新停止</label>
+      <button id="pauseHidden" class="toggle active">ON</button>
+    </div>
+    <div class="row" style="grid-template-columns: 1fr 1fr;">
+      <button id="clearImages" class="btn">画像をクリア</button>
+      <button id="resetSettings" class="btn">設定を初期化</button>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  // State
+  const stage = document.getElementById('stage');
+  const frame = document.getElementById('frame');
+  const imgA = document.getElementById('imgA');
+  const imgB = document.getElementById('imgB');
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const dirInput = document.getElementById('dirInput');
+  const mountBtn = document.getElementById('mountBtn');
+  const netBtn = document.getElementById('netBtn');
+  const captionEl = document.getElementById('caption');
+  const clockEl = document.getElementById('clock');
+  const panel = document.getElementById('panel');
+
+  const playBtn = document.getElementById('playBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const fsBtn = document.getElementById('fsBtn');
+  const gearBtn = document.getElementById('gearBtn');
+
+  const intervalInput = document.getElementById('interval');
+  const shuffleBtn = document.getElementById('shuffle');
+  const einkBtn = document.getElementById('eink');
+  const ditherBtn = document.getElementById('dither');
+  const showCaptionBtn = document.getElementById('showCaption');
+  const showClockBtn = document.getElementById('showClock');
+  const fitBtn = document.getElementById('fit');
+  const pauseHiddenBtn = document.getElementById('pauseHidden');
+  const clearImagesBtn = document.getElementById('clearImages');
+  const resetSettingsBtn = document.getElementById('resetSettings');
+  const animToggleBtn = document.getElementById('animToggle');
+
+  let images = []; // { url, name }
+  let order = [];
+  let idx = 0;
+  let playing = false;
+  let timer = null;
+  let useA = true;
+
+  // Settings with persistence
+  const settings = {
+    interval: 10,
+    shuffle: false,
+    eink: false,
+    dither: false,
+    showCaption: true,
+    showClock: true,
+    fitCover: true,
+    pauseHidden: true,
+    animation: true
+  };
+  const LS_KEY = 'eink_frame_settings_v2';
+  try { const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); Object.assign(settings, saved); } catch {}
+  function saveSettings(){ localStorage.setItem(LS_KEY, JSON.stringify(settings)); }
+
+  // UI init
+  intervalInput.value = settings.interval;
+  toggleUI(shuffleBtn, settings.shuffle, ['OFF','ON']);
+  toggleUI(einkBtn, settings.eink, ['OFF','ON']);
+  toggleUI(ditherBtn, settings.dither, ['OFF','ON']);
+  toggleUI(showCaptionBtn, settings.showCaption, ['OFF','ON']);
+  toggleUI(showClockBtn, settings.showClock, ['OFF','ON']);
+  toggleUI(fitBtn, settings.fitCover, ['Contain','Cover']);
+  toggleUI(pauseHiddenBtn, settings.pauseHidden, ['OFF','ON']);
+  toggleUI(animToggleBtn, settings.animation, ['OFF','ON']);
+  updateFilters(); updateFit(); updateClockVisibility(); updateCaptionVisibility();
+
+  const effects = ['fade-out','slide-right','slide-left','slide-up','slide-down','zoom-in','zoom-out','rotate-fade','blur-in','blur-out'];
+
+  // 山景アルバム（あなたのスクショ類似の一枚を内蔵 + オンライン風景）
+  function loadMountainAlbum(){
+    const album = [
+      { url: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAUDBAQEAwUEBAQFBQUGBwYHBwYHBwYICQgICQgKCQgKCQkKCQkKCQkKCQkKCQkKCQkKCQkKCQkKCQkKDAoKCgoKCgkKBQUFBQcHBwoHCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgr/2wBDAQYHBwYICQgICQgKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgr/wAARCAAyBf4DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYWHIiYmKi4yNDU2Nzg5OkNE...', name: 'mountain_bird.jpg' },
+      { url: `https://picsum.photos/1600/1000?random=${Date.now()+1}`, name: 'mountain_02.jpg' },
+      { url: `https://picsum.photos/1600/1000?random=${Date.now()+2}`, name: 'mountain_03.jpg' },
+      { url: `https://picsum.photos/1600/1000?random=${Date.now()+3}`, name: 'mountain_04.jpg' }
+    ];
+    images = images.concat(album);
+    order = images.map((_,i)=>i);
+    if (settings.shuffle) shuffle(order);
+    dropzone.style.display = 'none';
+    idx = 0; showImage(0, true);
+    if (!playing) start();
+  }
+  mountBtn?.addEventListener('click', loadMountainAlbum);
+
+  function loadOnlineLandscapes(count=8){
+    const base = Date.now()|0;
+    const items = Array.from({length: count}, (_,i)=>({
+      url: `https://picsum.photos/1600/1000?random=${base+i}`,
+      name: `PICSUM_${String(i+1).padStart(3,'0')}.jpg`
+    }));
+    images = images.concat(items);
+    order = images.map((_,i)=>i);
+    if (settings.shuffle) shuffle(order);
+    dropzone.style.display = 'none'; idx = 0; showImage(0, true); if (!playing) start();
+  }
+  netBtn?.addEventListener('click', () => loadOnlineLandscapes(8));
+
+  // 初回は山景アルバムを自動で読み込み
+  loadMountainAlbum();
+
+  // Drop & load
+  ;['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+  ;['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+  dropzone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+  fileInput.addEventListener('change', e => handleFiles(e.target.files));
+  dirInput.addEventListener('change', e => handleFiles(e.target.files));
+
+  // Paste support
+  window.addEventListener('paste', e => {
+    const files = Array.from(e.clipboardData.items).filter(i=>i.kind==='file').map(i=>i.getAsFile());
+    if (files.length) handleFiles(files);
+  });
+
+  function handleFiles(fileList){
+    const files = Array.from(fileList).filter(f => /^image\//.test(f.type));
+    if (!files.length) return;
+    const newItems = files.map(f => ({ url: URL.createObjectURL(f), name: f.webkitRelativePath || f.name }));
+    images = images.concat(newItems);
+    order = images.map((_, i) => i);
+    if (settings.shuffle) shuffle(order);
+    dropzone.style.display = 'none';
+    idx = 0; showImage(0, true);
+    if (!playing) start();
+  }
+
+  function shuffle(arr){ for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } }
+
+  function showImage(nextIndex, immediate=false){
+    if (!images.length) return;
+    idx = (nextIndex + order.length) % order.length;
+    const item = images[order[idx]];
+    captionEl.textContent = item.name || '';
+    const showEl = useA ? imgA : imgB; const hideEl = useA ? imgB : imgA;
+    showEl.onload = () => {
+      requestAnimationFrame(()=>{
+        if (!immediate && settings.animation && hideEl.classList.contains('show')) {
+          effects.forEach(cls => hideEl.classList.remove(cls));
+          const effect = effects[Math.floor(Math.random()*effects.length)];
+          hideEl.classList.add(effect);
+          hideEl.addEventListener('animationend', () => { hideEl.classList.remove('show', effect); hideEl.style.transform=''; hideEl.style.filter=''; hideEl.style.opacity=''; }, { once: true });
+        } else { hideEl.classList.remove('show'); }
+        showEl.classList.add('show');
+      });
+    };
+    showEl.src = item.url;
+    if (immediate) { hideEl.classList.remove('show'); showEl.classList.add('show'); }
+    useA = !useA;
+    const next = images[order[(idx+1)%order.length]]; if (next) new Image().src = next.url;
+  }
+
+  function next(){ showImage(idx+1); }
+  function prev(){ showImage(idx-1); }
+
+  function start(){ if (timer) clearInterval(timer); playing = true; playBtn.textContent = '⏸'; timer = setInterval(next, settings.interval * 1000); }
+  function stop(){ if (timer) clearInterval(timer); timer = null; playing = false; playBtn.textContent = '▶'; }
+  function togglePlay(){ playing ? stop() : start(); }
+
+  // Filters & fit
+  function updateFilters(){ stage.classList.toggle('eink', settings.eink); stage.classList.toggle('dither', settings.dither); }
+  function updateFit(){ frame.classList.toggle('fit-cover', settings.fitCover); }
+  function updateClockVisibility(){ clockEl.style.display = settings.showClock ? '' : 'none'; }
+  function updateCaptionVisibility(){ captionEl.style.display = settings.showCaption ? '' : 'none'; }
+
+  // Clock
+  function tick(){ if (!settings.showClock) return; const now = new Date(); const y = now.getFullYear(); const m = String(now.getMonth()+1).padStart(2,'0'); const d = String(now.getDate()).padStart(2,'0'); const hh = String(now.getHours()).padStart(2,'0'); const mm = String(now.getMinutes()).padStart(2,'0'); clockEl.textContent = `${y}/${m}/${d} ${hh}:${mm}`; }
+  setInterval(tick, 1000); tick();
+
+  // Buttons
+  playBtn.addEventListener('click', togglePlay);
+  prevBtn.addEventListener('click', prev);
+  nextBtn.addEventListener('click', next);
+  fsBtn.addEventListener('click', () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else document.exitFullscreen(); });
+  gearBtn.addEventListener('click', () => panel.classList.toggle('show'));
+
+  // Panel toggles
+  intervalInput.addEventListener('change', () => { const v = Math.max(2, Math.min(3600, Number(intervalInput.value)||10)); settings.interval = v; saveSettings(); if (playing) start(); });
+  hookToggle(shuffleBtn, val => { settings.shuffle = val; if (images.length) { order = images.map((_,i)=>i); if (val) shuffle(order); } saveSettings(); });
+  hookToggle(einkBtn, val => { settings.eink = val; updateFilters(); saveSettings(); });
+  hookToggle(ditherBtn, val => { settings.dither = val; if (val) settings.eink = true, toggleUI(einkBtn, true, ['OFF','ON']); updateFilters(); saveSettings(); });
+  hookToggle(showCaptionBtn, val => { settings.showCaption = val; updateCaptionVisibility(); saveSettings(); });
+  hookToggle(showClockBtn, val => { settings.showClock = val; updateClockVisibility(); saveSettings(); });
+  hookToggle(fitBtn, val => { settings.fitCover = val; updateFit(); saveSettings(); }, ['Contain','Cover']);
+  hookToggle(pauseHiddenBtn, val => { settings.pauseHidden = val; saveSettings(); });
+  hookToggle(animToggleBtn, val => { settings.animation = val; saveSettings(); });
+
+  clearImagesBtn.addEventListener('click', () => { images.forEach(i=>URL.revokeObjectURL?.(i.url)); images = []; order = []; idx = 0; stop(); dropzone.style.display = ''; captionEl.textContent = '画像が未読み込みです'; imgA.src = imgB.src = ''; imgA.classList.remove('show'); imgB.classList.remove('show'); });
+  resetSettingsBtn.addEventListener('click', () => { localStorage.removeItem(LS_KEY); location.reload(); });
+
+  function hookToggle(btn, onChange, labels=["OFF","ON"]) { btn.addEventListener('click', () => { const newVal = !btn.classList.contains('active'); toggleUI(btn, newVal, labels); onChange(newVal); }); }
+  function toggleUI(btn, val, labels=["OFF","ON"]) { btn.classList.toggle('active', val); btn.textContent = val ? labels[1] : labels[0]; }
+
+  // Page visibility (battery friendly)
+  document.addEventListener('visibilitychange', () => { if (!settings.pauseHidden) return; if (document.hidden) { if (playing) stop(); } else { if (!playing && images.length) start(); } });
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e) => { if (e.target.matches('input, textarea')) return; if (e.code === 'Space') { e.preventDefault(); togglePlay(); } else if (e.key === 'ArrowRight') next(); else if (e.key === 'ArrowLeft') prev(); else if (e.key.toLowerCase() === 'f') fsBtn.click(); else if (e.key.toLowerCase() === 'g') { einkBtn.click(); } else if (e.key.toLowerCase() === 'c') { showClockBtn.click(); } else if (e.key.toLowerCase() === 's') { gearBtn.click(); } });
+})();
+</script>
+</body>
+</html>

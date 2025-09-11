@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NT26-05【評価】Linuxスキル確認テスト（インタラクティブ）</title>
+  <style>
+    :root{
+      --bg:#0b1020; --card:#131a33; --muted:#9aa4c7; --text:#eaf0ff; --accent:#7aa2ff; --ok:#21c08b; --ng:#ff5a79; --warn:#ffcc66;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b1020,#0e1630 35%,#0b1020);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic UI',sans-serif;}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .title{font-weight:700;letter-spacing:.3px}
+    .title small{display:block;color:var(--muted);font-weight:500}
+    .card{background:var(--card);border:1px solid #1f2750;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .row{display:grid;grid-template-columns:1fr 320px;gap:16px}
+    @media (max-width: 920px){.row{grid-template-columns:1fr}}
+    .quiz{padding:20px 20px 16px}
+    .side{padding:16px;position:sticky;top:10px;align-self:start}
+    .progress{height:10px;background:#212a55;border-radius:999px;overflow:hidden}
+    .bar{height:100%;background:linear-gradient(90deg,var(--accent),#8dd6ff);width:0%}
+    .qhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 6px}
+    .qtext{font-size:1.05rem;line-height:1.5}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{font-size:.85rem;color:#c8d2ff;background:#1a2150;border:1px solid #263079;padding:6px 10px;border-radius:999px}
+    .opts{display:grid;gap:10px;margin-top:14px}
+    .opt{border:1px solid #243067;background:#12193a;padding:12px 14px;border-radius:12px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;transition:.15s}
+    .opt:hover{border-color:#3a4aa3;transform:translateY(-1px)}
+    .opt[aria-selected="true"]{outline:2px solid var(--accent);border-color:var(--accent)}
+    .opt.correct{background:rgba(33,192,139,.1);border-color:var(--ok)}
+    .opt.wrong{background:rgba(255,90,121,.07);border-color:var(--ng)}
+    .opt .bullet{width:26px;height:26px;border-radius:8px;background:#1b2352;border:1px solid #2c3770;display:grid;place-items:center;font-weight:700}
+    .opt.correct .bullet{background:rgba(33,192,139,.18);border-color:var(--ok);color:var(--ok)}
+    .opt.wrong .bullet{background:rgba(255,90,121,.18);border-color:var(--ng);color:var(--ng)}
+    .controls{display:flex;gap:10px;margin-top:16px}
+    button{background:#1b2352;border:1px solid #2b3672;color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer}
+    button:hover{border-color:#3a4aa3}
+    .btn-primary{background:linear-gradient(180deg,#2a3aa3,#243482);border-color:#3a4aa3}
+    .btn-danger{background:linear-gradient(180deg,#8d2941,#6e1f32);border-color:#a34158}
+    .score{font-size:1.4rem;font-weight:700}
+    .muted{color:var(--muted)}
+    .pill{background:#15204c;border:1px solid #2b3672;border-radius:999px;padding:6px 10px}
+    .history{max-height:320px;overflow:auto;display:grid;gap:8px;margin-top:8px}
+    .hist-item{display:flex;justify-content:space-between;align-items:center;background:#0f1533;border:1px solid #1f2750;border-radius:10px;padding:10px}
+    .small{font-size:.85rem}
+    .footer{padding:12px 16px;border-top:1px solid #202958;color:var(--muted);display:flex;justify-content:space-between;align-items:center;border-radius:0 0 16px 16px}
+    .switch{display:inline-flex;gap:8px;align-items:center}
+    input[type="checkbox"]{width:18px;height:18px}
+    .kdb{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; background:#0d1430;border:1px solid #243067;border-radius:8px;padding:2px 6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <div>NT26-05【評価】Linuxスキル確認テスト（50問）</div>
+        <small>テキスト参照可｜WSL2/macOSで動作確認しながら学習｜<span class="muted">作成者: 曹 小帥（想定）</span></small>
+      </div>
+      <div class="chips">
+        <span class="chip">オープンテキスト</span>
+        <span class="chip">自動次へ</span>
+        <span class="chip">履歴保存</span>
+      </div>
+    </header>
+
+    <div class="row">
+      <!-- Main Quiz Card -->
+      <section class="card quiz" aria-live="polite">
+        <div class="progress" aria-label="進捗">
+          <div id="bar" class="bar"></div>
+        </div>
+
+        <div class="qhead">
+          <div>
+            <div id="qnumber" class="muted small">Q1 / 50（各2点・満点100）</div>
+            <div id="qtext" class="qtext">読み込み中…</div>
+          </div>
+          <div class="switch small">
+            <label><input type="checkbox" id="autoNext" checked> 自動で次へ</label>
+          </div>
+        </div>
+
+        <div id="opts" class="opts" role="listbox" aria-label="選択肢"></div>
+
+        <div class="controls">
+          <button id="prevBtn" title="前へ"><span class="kdb">←</span> 前へ</button>
+          <button id="nextBtn" class="btn-primary" title="次へ">次へ <span class="kdb">→</span></button>
+          <button id="resetAttempt" class="btn-danger" title="今回の解答をリセット">今回リセット</button>
+        </div>
+
+        <div class="footer">
+          <div>
+            <span class="score" id="scoreNow">現在: 0 / 100</span>
+            <span class="muted small" id="answerState">（未回答）</span>
+          </div>
+          <div class="small muted">ヒント: 迷ったら <span class="kdb">man コマンド名</span> を実機で確認</div>
+        </div>
+      </section>
+
+      <!-- Side Card -->
+      <aside class="card side">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div>
+            <div style="font-weight:700">履歴スコア</div>
+            <div class="muted small">ローカル保存（このPCのみ）</div>
+          </div>
+          <button id="saveBtn" class="btn-primary">今回の結果を保存</button>
+        </div>
+        <div class="history" id="history"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="resetHistory" class="btn-danger">履歴を全て削除</button>
+          <button id="exportBtn">CSVで書き出し</button>
+        </div>
+        <hr style="border-color:#1f2750;margin:14px 0"/>
+        <div class="small muted">
+          <div>キーボード: <span class="kdb">←/→</span> 前後移動、<span class="kdb">1..4</span> 選択。</div>
+          <div>作問: NT26-05 Linux 基礎。GUI系（baobab）はWSLで起動不可の場合あり。</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+  // ====== データ（50問） ======
+  // 各エントリ: {q:"テキスト", choices:["A","B","C","D"], correct:index(0-3)}
+  const QUESTIONS = [
+    {q:'Linuxでファイルの所有者を変更するコマンドはどれですか？',choices:['chmod','chown','chgrp','owner'],correct:1},
+    {q:'Linuxでディレクトリを移動するコマンドはどれですか？',choices:['move','cd','mv','goto'],correct:1},
+    {q:'Linuxで別のユーザーとしてコマンドを実行するコマンドはどれですか？',choices:['runas','exec','sudo','asuser'],correct:2},
+    {q:'Linuxでスケジュールされたタスクを表示するコマンドはどれですか？',choices:['at','cronjob','crontab','schedule'],correct:2},
+    {q:'Linuxでファイルの内容をページごとに表示するコマンドはどれですか？',choices:['cat','more','head','tail'],correct:1},
+    {q:'Linuxでネットワーク接続をテストするのに一般的に使用されるコマンドはどれですか？',choices:['ifconfig','netstat','ping','traceroute'],correct:2},
+    {q:'Linuxでファイルの内容を逆順に表示するコマンドはどれですか？',choices:['cat -r','tac','rev','tail -r'],correct:1},
+    {q:'Linuxで新しい空のファイルを作成する、またはファイルのタイムスタンプを更新するコマンドはどれですか？',choices:['create','newfile','touch','mkfile'],correct:2},
+    {q:'Linuxでパッケージの情報を表示するコマンドはどれですか？（Debian/Ubuntu系の場合）',choices:['apt search','apt show','apt list','apt info'],correct:1},
+    {q:'Linuxで新しいユーザーアカウントを作成するコマンドはどれですか？',choices:['adduser','newuser','useradd','mkuser'],correct:2},
+    {q:'Linuxでファイルのタイプ（ディレクトリ、ファイル、リンクなど）とパーミッションを表示するコマンドはどれですか？',choices:['cat','ls -l','file','stat'],correct:1},
+    {q:'Linuxでシステムをシャットダウンするコマンドはどれですか？',choices:['restart','halt','shutdown','poweroff'],correct:2},
+    {q:'Linuxでシステムの稼働時間と平均負荷を表示するコマンドはどれですか？',choices:['top','df','uptime','free'],correct:2},
+    {q:'Linuxでネットワークインターフェースの統計情報を表示するコマンドはどれですか？',choices:['ping','netstat -i','ip route','host'],correct:1},
+    {q:'Linuxでプロセスを強制終了するコマンドはどれですか？',choices:['stop','kill','terminate','exit'],correct:1},
+    {q:'Linuxでテキストファイル内の指定されたパターンを検索するコマンドはどれですか？',choices:['find','search','grep','locate'],correct:2},
+    {q:'Linuxでシステム情報を表示するコマンドはどれですか？（カーネルバージョン、OSなど）',choices:['sysinfo','info','uname','osinfo'],correct:2},
+    {q:'Linuxでコマンドの履歴を表示するコマンドはどれですか？',choices:['log','history','records','last'],correct:1},
+    {q:'Linuxでディレクトリを削除する際、ディレクトリ内にファイルがあっても強制的に削除するオプションはどれですか？',choices:['-d','-i','-r または -R','-f'],correct:2},
+    {q:'Linuxでファイルを検索するコマンドとして適切なものはどれですか？',choices:['search','find','locate','grep'],correct:1},
+    {q:'Linuxでリモートサーバーにファイルを安全にコピーするコマンドはどれですか？',choices:['ftp','scp','rcp','cp'],correct:1},
+    {q:'Linuxでファイルの内容を編集するのに使われるテキストエディタはどれですか？',choices:['notepad','word','vi (または vim)','paint'],correct:2},
+    {q:'Linuxで特定のファイルの種類を判別するコマンドはどれですか？',choices:['type','info','file','kind'],correct:2},
+    {q:'Linuxで個々のディレクトリ使用量を確認するコマンドはどれですか？',choices:['ls -s','du','df','fdisk'],correct:1},
+    {q:'Linuxで現在ログインしているユーザーを表示するコマンドはどれですか？',choices:['whoami','users','who','logname'],correct:0},
+    {q:'Linuxでユーザーのパスワードを変更するコマンドはどれですか？',choices:['passwd','chpass','userpass','setpass'],correct:0},
+    {q:'Linuxで環境変数を表示するコマンドはどれですか？',choices:['vars','env','set','export'],correct:1},
+    {q:'Linuxでディレクトリの内容を再帰的に表示するlsコマンドのオプションはどれですか？',choices:['-a','-l','-r','-R'],correct:3},
+    {q:'Linuxでシステム起動時のメッセージを表示するコマンドはどれですか？',choices:['bootlog','kernelog','dmesg','syslog'],correct:2},
+    {q:'Linuxでディレクトリを作成するコマンドはどれですか？',choices:['touch','mkdir','create','rm'],correct:1},
+    {q:'Linuxでコマンドの実行結果をファイルにリダイレクトする記号はどれですか？',choices:['|','<<','>','>>'],correct:2},
+    {q:'Linuxで実行中のプロセスのツリー構造を表示するコマンドはどれですか？',choices:['ps','top','pstree','htop'],correct:2},
+    {q:'Linuxでコマンドのヘルプを表示するための一般的なオプションはどれですか？',choices:['-h または --help','-doc','man','info'],correct:0},
+    {q:'Linuxで現在の作業ディレクトリを表示するコマンドはどれですか？',choices:['ls','pwd','cd','dir'],correct:1},
+    {q:'Linuxでシステムログを表示するコマンドはどれですか？',choices:['dmesg','journalctl','logread','tail -f /var/log/messages'],correct:1},
+    {q:'Linuxでインストールされているパッケージを管理するコマンドはどれですか？（Debian/Ubuntu系の場合）',choices:['yum','rpm','apt','pacman'],correct:2},
+    {q:'Linuxでネットワークインターフェースの設定を表示するコマンドはどれですか？',choices:['netstat','ip addr','ping','route'],correct:1},
+    {q:'Linuxでファイルのパーミッションを変更するコマンドはどれですか？',choices:['chown','chmod','chgrp','setperm'],correct:1},
+    {q:'Linuxでファイルをコピーするコマンドはどれですか？',choices:['mv','cp','rm','ln'],correct:1},
+    {q:'Linuxでコマンドのエイリアスを設定するコマンドはどれですか？',choices:['define','alias','shortcut','link'],correct:1},
+    {q:'Linuxでシンボリックリンクを作成するコマンドはどれですか？',choices:['cp -s','link','ln -s','symlink'],correct:2},
+    {q:'Linuxで実行中のプロセスを表示するコマンドはどれですか？',choices:['ls','cd','ps','mv'],correct:2},
+    {q:'Linuxでディスクの使用状況をグラフィカルに表示するコマンドはどれですか？',choices:['df','du','baobab','gnome-disk-utility'],correct:2},
+    {q:'Linuxで圧縮されたファイル（.gzや.bz2など）を展開するコマンドはどれですか？',choices:['compress','extract','tar','zip'],correct:2},
+    {q:'Linuxで現在の日付と時刻を表示するコマンドはどれですか？',choices:['time','now','date','datetime'],correct:2},
+    {q:'Linuxで現在使用中のメモリ（RAM）の状況を表示するコマンドはどれですか？',choices:['top','df','free','meminfo'],correct:2},
+    {q:'Linuxでファイルやディレクトリを削除するコマンドはどれですか？',choices:['delete','erase','rm','unlink'],correct:2},
+    {q:'Linuxで実行中のコマンドを中断するキーボードショートカットはどれですか？',choices:['[Ctrl] + [Z]','[Ctrl] + [C]','[Ctrl] + [D]','[Ctrl] + [X]'],correct:1},
+    {q:'Linuxでファイルシステムの整合性をチェックするコマンドはどれですか？',choices:['fscheck','chkdsk','fsck','diskutil'],correct:2},
+    {q:'Linuxでプロセスをバックグラウンドで実行するための記号はどれですか？',choices:['*','#','&','$'],correct:2},
+  ];
+
+  // ====== 状態 ======
+  let idx = 0;               // 現在の設問番号
+  let picked = Array(QUESTIONS.length).fill(null); // 選択肢 index を記録
+  const POINT_PER = 2;       // 各2点
+  const AUTO_ADV_MS = 850;   // 自動次へまでの遅延
+
+  // ====== 要素参照 ======
+  const bar = document.getElementById('bar');
+  const qnumber = document.getElementById('qnumber');
+  const qtext = document.getElementById('qtext');
+  const opts = document.getElementById('opts');
+  const nextBtn = document.getElementById('nextBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const resetAttempt = document.getElementById('resetAttempt');
+  const scoreNow = document.getElementById('scoreNow');
+  const answerState = document.getElementById('answerState');
+  const autoNext = document.getElementById('autoNext');
+
+  // 履歴関連
+  const saveBtn = document.getElementById('saveBtn');
+  const resetHistory = document.getElementById('resetHistory');
+  const exportBtn = document.getElementById('exportBtn');
+  const historyEl = document.getElementById('history');
+
+  function render(){
+    const q = QUESTIONS[idx];
+    qnumber.textContent = `Q${idx+1} / ${QUESTIONS.length}（各2点・満点100）`;
+    qtext.textContent = q.q;
+    opts.innerHTML = '';
+
+    q.choices.forEach((c,i)=>{
+      const div = document.createElement('button');
+      div.className = 'opt';
+      div.setAttribute('role','option');
+      div.setAttribute('aria-selected', picked[idx]===i ? 'true':'false');
+      div.innerHTML = `<div class="bullet">${i+1}</div><div>${c}</div>`;
+      div.addEventListener('click',()=> choose(i));
+
+      if(picked[idx]!==null){
+        const isCorrect = i===q.correct;
+        if(i===picked[idx]){
+          div.classList.add(isCorrect? 'correct':'wrong');
+        } else if(isCorrect){
+          div.classList.add('correct');
+        }
+      }
+      opts.appendChild(div);
+    });
+
+    // 進捗とスコア
+    const done = picked.filter(v=>v!==null).length;
+    bar.style.width = `${(done/QUESTIONS.length)*100}%`;
+    const sc = calcScore();
+    scoreNow.textContent = `現在: ${sc} / 100`;
+    const status = picked[idx]===null? '（未回答）' : (picked[idx]===QUESTIONS[idx].correct? '（正解）':'（不正解）');
+    answerState.textContent = status;
+
+    // ボタン有効/無効
+    prevBtn.disabled = idx===0;
+    nextBtn.disabled = idx>=QUESTIONS.length-1;
+  }
+
+  function choose(choiceIndex){
+    if(picked[idx]!==null){ // 既に回答済は上書き
+      picked[idx] = choiceIndex;
+    } else {
+      picked[idx] = choiceIndex;
+    }
+    render();
+    if(autoNext.checked){
+      setTimeout(()=>{
+        if(idx<QUESTIONS.length-1){ idx++; render(); }
+      }, AUTO_ADV_MS);
+    }
+  }
+
+  function calcScore(){
+    const correctCount = picked.reduce((acc,v,i)=> acc + (v===QUESTIONS[i].correct?1:0), 0);
+    return correctCount * POINT_PER;
+  }
+
+  nextBtn.addEventListener('click',()=>{ if(idx<QUESTIONS.length-1){ idx++; render(); }});
+  prevBtn.addEventListener('click',()=>{ if(idx>0){ idx--; render(); }});
+  resetAttempt.addEventListener('click',()=>{
+    if(confirm('今回の解答をすべて消去しますか？')){
+      picked = Array(QUESTIONS.length).fill(null);
+      idx = 0; render();
+    }
+  });
+
+  // キーボード操作
+  document.addEventListener('keydown',(e)=>{
+    if(e.key==='ArrowRight'){ if(idx<QUESTIONS.length-1){ idx++; render(); } }
+    if(e.key==='ArrowLeft'){ if(idx>0){ idx--; render(); } }
+    if(/^[1-4]$/.test(e.key)){
+      const n = parseInt(e.key,10)-1; if(QUESTIONS[idx].choices[n]!==undefined) choose(n);
+    }
+  });
+
+  // ====== 履歴（localStorage） ======
+  const KEY = 'nt26_linux_quiz_history_v1';
+  function loadHistory(){
+    try{ return JSON.parse(localStorage.getItem(KEY))||[] }catch{ return [] }
+  }
+  function saveHistoryItem(){
+    const item = { ts: Date.now(), score: calcScore(), correct: picked.filter((v,i)=>v===QUESTIONS[i].correct).length, total: QUESTIONS.length };
+    const arr = loadHistory();
+    arr.unshift(item);
+    localStorage.setItem(KEY, JSON.stringify(arr));
+    renderHistory();
+  }
+  function resetHist(){ localStorage.removeItem(KEY); renderHistory(); }
+  function renderHistory(){
+    const arr = loadHistory();
+    historyEl.innerHTML = '';
+    if(arr.length===0){
+      historyEl.innerHTML = '<div class="muted small">履歴はまだありません。右上の「今回の結果を保存」を押すと記録されます。</div>';
+      return;
+    }
+    // 平均
+    const avg = Math.round(arr.reduce((s,x)=>s+x.score,0)/arr.length);
+    const head = document.createElement('div');
+    head.className='pill';
+    head.textContent = `平均スコア: ${avg} / 100（${arr.length}回）`;
+    historyEl.appendChild(head);
+
+    arr.forEach(x=>{
+      const d = new Date(x.ts);
+      const div = document.createElement('div');
+      div.className='hist-item';
+      div.innerHTML = `<div><div>${d.toLocaleString()}</div><div class="muted small">${x.correct}/${x.total} 正解</div></div><div class="score">${x.score}</div>`;
+      historyEl.appendChild(div);
+    });
+  }
+
+  function exportCSV(){
+    const arr = loadHistory();
+    if(arr.length===0){ alert('履歴がありません'); return; }
+    const rows = [['timestamp','datetime','score','correct','total']]
+      .concat(arr.map(x=>[x.ts, new Date(x.ts).toISOString(), x.score, x.correct, x.total]));
+    const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'NT26-05_LinuxSkillTest_history.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  saveBtn.addEventListener('click', saveHistoryItem);
+  resetHistory.addEventListener('click', ()=>{ if(confirm('履歴を全て削除しますか？')) resetHist(); });
+  exportBtn.addEventListener('click', exportCSV);
+
+  // 初期表示
+  render();
+  renderHistory();
+  </script>
+</body>
+</html>

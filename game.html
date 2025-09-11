@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小游戏：打砖块</title>
+<style>
+  body {
+    margin: 0; background: #111; color: #eee;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: system-ui, sans-serif;
+    height: 100vh;
+  }
+  h1 { margin: 10px; }
+  canvas {
+    background: #222; border: 2px solid #555; border-radius: 8px;
+  }
+  #info { margin-top: 8px; }
+  button {
+    margin-top: 12px; padding: 8px 14px;
+    border: none; border-radius: 6px;
+    background: #4cafef; color: #fff; font-size: 16px; cursor: pointer;
+  }
+  button:hover { background: #3797d6; }
+</style>
+</head>
+<body>
+  <h1>🎮 打砖块小游戏</h1>
+  <canvas id="game" width="480" height="320"></canvas>
+  <div id="info">方向键 ← → 控制挡板</div>
+  <button id="restart">重新开始</button>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+// 挡板
+let paddleHeight = 10, paddleWidth = 75;
+let paddleX = (canvas.width - paddleWidth) / 2;
+
+// 球
+let x = canvas.width / 2, y = canvas.height - 30;
+let dx = 1.2, dy = -1.2, ballRadius = 8;
+
+// 砖块
+let brickRowCount = 4, brickColumnCount = 6;
+let brickWidth = 60, brickHeight = 20, brickPadding = 8;
+let brickOffsetTop = 30, brickOffsetLeft = 30;
+let bricks = [];
+
+// 游戏状态
+let rightPressed = false, leftPressed = false;
+let score = 0, lives = 3;
+
+function initBricks() {
+  bricks = [];
+  for(let c=0;c<brickColumnCount;c++){
+    bricks[c] = [];
+    for(let r=0;r<brickRowCount;r++){
+      bricks[c][r] = { x:0, y:0, status:1 };
+    }
+  }
+}
+initBricks();
+
+// 事件监听
+document.addEventListener("keydown", keyDownHandler);
+document.addEventListener("keyup", keyUpHandler);
+function keyDownHandler(e){
+  if(e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
+  else if(e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
+}
+function keyUpHandler(e){
+  if(e.key === "Right" || e.key === "ArrowRight") rightPressed = false;
+  else if(e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
+}
+
+// 碰撞检测
+function collisionDetection(){
+  for(let c=0;c<brickColumnCount;c++){
+    for(let r=0;r<brickRowCount;r++){
+      let b = bricks[c][r];
+      if(b.status){
+        if(x > b.x && x < b.x+brickWidth && y > b.y && y < b.y+brickHeight){
+          dy = -dy; b.status=0; score++;
+          if(score === brickRowCount*brickColumnCount){
+            alert("🎉 你赢啦！总分："+score);
+            document.location.reload();
+          }
+        }
+      }
+    }
+  }
+}
+
+// 绘制
+function drawBall(){
+  ctx.beginPath();
+  ctx.arc(x, y, ballRadius, 0, Math.PI*2);
+  ctx.fillStyle = "#4cafef";
+  ctx.fill();
+  ctx.closePath();
+}
+function drawPaddle(){
+  ctx.beginPath();
+  ctx.rect(paddleX, canvas.height-paddleHeight-5, paddleWidth, paddleHeight);
+  ctx.fillStyle = "#f4c542";
+  ctx.fill();
+  ctx.closePath();
+}
+function drawBricks(){
+  for(let c=0;c<brickColumnCount;c++){
+    for(let r=0;r<brickRowCount;r++){
+      if(bricks[c][r].status){
+        let brickX = (c*(brickWidth+brickPadding))+brickOffsetLeft;
+        let brickY = (r*(brickHeight+brickPadding))+brickOffsetTop;
+        bricks[c][r].x = brickX;
+        bricks[c][r].y = brickY;
+        ctx.beginPath();
+        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+        ctx.fillStyle = "#e85d75";
+        ctx.fill();
+        ctx.closePath();
+      }
+    }
+  }
+}
+function drawScore(){
+  ctx.font = "14px Arial"; ctx.fillStyle = "#eee";
+  ctx.fillText("分数: "+score, 8, 20);
+}
+function drawLives(){
+  ctx.font = "14px Arial"; ctx.fillStyle = "#eee";
+  ctx.fillText("生命: "+lives, canvas.width-65, 20);
+}
+
+// 主循环
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawBricks(); drawBall(); drawPaddle(); drawScore(); drawLives();
+  collisionDetection();
+
+  if(x+dx > canvas.width-ballRadius || x+dx < ballRadius) dx = -dx;
+  if(y+dy < ballRadius) dy = -dy;
+  else if(y+dy > canvas.height-ballRadius){
+    if(x > paddleX && x < paddleX+paddleWidth) dy = -dy;
+    else{
+      lives--;
+      if(!lives){ alert("💀 游戏结束！"); document.location.reload(); }
+  else{ x=canvas.width/2; y=canvas.height-30; dx=1.2; dy=-1.2; paddleX=(canvas.width-paddleWidth)/2; }
+    }
+  }
+
+  if(rightPressed && paddleX<canvas.width-paddleWidth) paddleX+=2.5;
+  else if(leftPressed && paddleX>0) paddleX-=2.5;
+
+  x+=dx; y+=dy;
+  requestAnimationFrame(draw);
+}
+draw();
+
+document.getElementById("restart").onclick = () => document.location.reload();
+</script>
+</body>
+</html>

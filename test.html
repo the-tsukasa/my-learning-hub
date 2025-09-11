@@ -1,54 +1,255 @@
 <!DOCTYPE html>
-<html lang="zh-cn">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>简易日历</title>
-  <style>
-    body { background: #f8f9fa; color: #212529; font-family: system-ui, Arial, sans-serif; margin: 0; }
-    .calendar { max-width: 340px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.08); padding: 24px; }
-    .calendar h2 { text-align: center; margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { width: 14.28%; text-align: center; padding: 8px 0; }
-    th { background: #007bff; color: #fff; border-radius: 6px; }
-    td { background: #e9ecef; border-radius: 6px; }
-    .today { background: #ffc107; color: #212529; font-weight: bold; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>有趣主页 · 自我玩耍场</title>
+<style>
+  :root{
+    --bg:#f8f9fb; --card:#ffffff; --text:#222; --muted:#6b7280; --accent:#7c3aed; --ring:#e5e7eb;
+  }
+  :root.dark{
+    --bg:#0b0f14; --card:#0f1520; --text:#e6e6e6; --muted:#9aa3af; --accent:#a78bfa; --ring:#1f2937;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .wrap{width:min(900px,96vw)}
+  .card{
+    background:var(--card); border:1px solid var(--ring); border-radius:16px;
+    padding:28px; box-shadow:0 10px 30px rgba(0,0,0,.06)
+  }
+  header{display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:8px}
+  .chip{font-size:12px; color:var(--muted); background:rgba(127,127,127,.08); padding:6px 10px; border-radius:999px}
+  .title{
+    font-size:clamp(28px, 5vw, 44px); font-weight:800; letter-spacing:.3px; margin:8px 0 2px;
+  }
+  .type{
+    border-right:2px solid var(--accent); white-space:nowrap; overflow:hidden;
+    animation:blink 1s steps(1) infinite;
+  }
+  @keyframes blink{50%{border-color:transparent}}
+  p.lead{margin:6px 0 18px; color:var(--muted)}
+  .row{display:grid; grid-template-columns: 1.2fr .8fr; gap:18px}
+  @media (max-width:800px){.row{grid-template-columns:1fr}}
+  .panel{border:1px dashed var(--ring); border-radius:12px; padding:16px}
+  .panel h3{margin:0 0 10px; font-size:16px}
+  button{
+    appearance:none; border:none; cursor:pointer; border-radius:12px; padding:10px 14px; font-weight:700;
+    background:var(--accent); color:#fff; box-shadow:0 6px 16px rgba(124,58,237,.25); transition:transform .05s ease;
+  }
+  button:active{transform:translateY(1px)}
+  .row .col{display:flex; flex-direction:column; gap:16px}
+  .input{
+    display:flex; align-items:center; gap:10px; background:rgba(127,127,127,.06); padding:10px 12px; border-radius:12px
+  }
+  input[type="text"]{
+    flex:1; border:none; outline:none; font:inherit; background:transparent; color:var(--text)
+  }
+  .mood{display:flex; align-items:center; gap:12px}
+  input[type="range"]{width:100%}
+  .pill{padding:4px 10px; border-radius:999px; background:rgba(124,58,237,.12); color:var(--accent); font-weight:700; font-size:12px}
+  .footer{display:flex; align-items:center; justify-content:space-between; margin-top:18px; color:var(--muted); font-size:13px}
+  .toggle{background:transparent; color:var(--text); border:1px solid var(--ring); box-shadow:none}
+  .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; padding:2px 6px; border:1px solid var(--ring); border-radius:6px}
+  canvas#confetti{position:fixed; inset:0; pointer-events:none}
+</style>
 </head>
 <body>
-  <div class="calendar">
-    <h2 id="monthYear"></h2>
-    <table>
-      <thead>
-        <tr>
-          <th>日</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th>
-        </tr>
-      </thead>
-      <tbody id="calendarBody"></tbody>
-    </table>
+<canvas id="confetti"></canvas>
+<div class="wrap">
+  <div class="card">
+    <header>
+      <span class="chip">Made by Me</span>
+      <div style="display:flex; gap:8px">
+        <button class="toggle" id="themeBtn" title="切换主题">🌓 主题</button>
+        <button class="toggle" id="fireBtn" title="庆祝一下！">🎉 放彩带</button>
+      </div>
+    </header>
+
+    <div class="title"><span id="hello">你好，</span><span id="typer" class="type"></span></div>
+    <p class="lead">一个轻量、有趣、可自定义的单文件主页。支持主题切换、心情记录，还有隐藏彩蛋。</p>
+
+    <div class="row">
+      <div class="col">
+        <div class="panel">
+          <h3>① 给主页签个名</h3>
+          <div class="input">
+            <span>🖊️</span>
+            <input id="name" type="text" placeholder="输入你的名字，例如：Sōu / 小帅 / そう">
+            <button id="saveName">保存</button>
+          </div>
+          <div style="margin-top:10px;color:var(--muted);font-size:14px">
+            已保存到 <span class="kbd">localStorage</span>，刷新也能记住。
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>② 今天心情</h3>
+          <div class="mood">
+            <input id="mood" type="range" min="0" max="100" value="60">
+            <div id="emoji" style="font-size:28px">😄</div>
+            <span id="moodText" class="pill">元气满满</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>③ 小目标</h3>
+          <ul id="goals" style="margin:0 0 8px 18px">
+            <li>写一个小组件 / 小页面</li>
+            <li>把它部署到 GitHub Pages</li>
+            <li>分享给朋友 ✨</li>
+          </ul>
+          <button id="addGoal">+ 添加目标</button>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="panel" style="min-height:220px">
+          <h3>即时备注</h3>
+          <textarea id="note" rows="9" style="width:100%;resize:vertical;background:transparent;border:1px solid var(--ring);border-radius:10px;padding:10px;color:var(--text)"></textarea>
+          <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end">
+            <button id="saveNote">保存</button>
+            <button class="toggle" id="clearNote">清空</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>彩蛋</h3>
+          <div style="color:var(--muted);font-size:14px">
+            输入 <span class="kbd">↑ ↑ ↓ ↓ ← → ← → B A</span> 看看会发生什么 👀
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>© <span id="year"></span> My Fun Page</span>
+      <span>技术栈：原生 HTML + CSS + JS（单文件）</span>
+    </div>
   </div>
-  <script>
-    function renderCalendar() {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      const today = now.getDate();
-      document.getElementById('monthYear').textContent = `${year}年${month+1}月`;
-      const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month+1, 0).getDate();
-      let html = '<tr>';
-      for(let i=0; i<firstDay; i++) html += '<td></td>';
-      for(let d=1; d<=daysInMonth; d++) {
-        const isToday = d === today;
-        html += `<td class="${isToday ? 'today' : ''}">${d}</td>`;
-        if((firstDay + d) % 7 === 0 && d !== daysInMonth) html += '</tr><tr>';
-      }
-      const lastDay = (firstDay + daysInMonth) % 7;
-      if(lastDay !== 0) for(let i=lastDay; i<7; i++) html += '<td></td>';
-      html += '</tr>';
-      document.getElementById('calendarBody').innerHTML = html;
-    }
-    renderCalendar();
-  </script>
+</div>
+
+<script>
+/* ---------- 主题 & 初始化 ---------- */
+const root = document.documentElement;
+const savedTheme = localStorage.getItem('theme');
+if(savedTheme === 'dark') root.classList.add('dark');
+
+document.getElementById('themeBtn').onclick = () => {
+  root.classList.toggle('dark');
+  localStorage.setItem('theme', root.classList.contains('dark') ? 'dark' : 'light');
+};
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* ---------- 打字机 ---------- */
+const words = ["欢迎来到我的小站！","一起做点有趣的东西吧～","前端 / 写作 / 照片 / 想法"];
+let wi = 0, ci = 0, deleting = false;
+const el = document.getElementById('typer');
+function type(){
+  const w = words[wi];
+  el.textContent = w.slice(0, ci);
+  if(!deleting && ci < w.length){ ci++; }
+  else if(!deleting && ci === w.length){ deleting = true; setTimeout(type, 900); return; }
+  else if(deleting && ci > 0){ ci--; }
+  else { deleting = false; wi = (wi+1)%words.length; }
+  setTimeout(type, deleting ? 35 : 60);
+}
+type();
+
+/* ---------- 名字 ---------- */
+const nameInput = document.getElementById('name');
+const hello = document.getElementById('hello');
+nameInput.value = localStorage.getItem('myname') || '';
+if(nameInput.value) hello.textContent = `你好，${nameInput.value}，`;
+document.getElementById('saveName').onclick = () => {
+  const v = nameInput.value.trim();
+  localStorage.setItem('myname', v);
+  hello.textContent = v ? `你好，${v}，` : '你好，';
+};
+
+/* ---------- 心情滑块 ---------- */
+const mood = document.getElementById('mood');
+const emoji = document.getElementById('emoji');
+const moodText = document.getElementById('moodText');
+function renderMood(v){
+  let e='🙂', t='还行';
+  if(v<20){ e='😵'; t='需要睡觉'; }
+  else if(v<40){ e='😕'; t='一般般'; }
+  else if(v<60){ e='😌'; t='平静'; }
+  else if(v<80){ e='😄'; t='元气满满'; }
+  else { e='🤩'; t='超兴奋'; }
+  emoji.textContent=e; moodText.textContent=t;
+}
+renderMood(+mood.value);
+mood.oninput = e => renderMood(+e.target.value);
+
+/* ---------- 目标清单 ---------- */
+document.getElementById('addGoal').onclick = () => {
+  const txt = prompt('输入一个新目标：');
+  if(!txt) return;
+  const li = document.createElement('li'); li.textContent = txt;
+  document.getElementById('goals').appendChild(li);
+};
+
+/* ---------- 便笺 ---------- */
+const note = document.getElementById('note');
+note.value = localStorage.getItem('note') || '';
+document.getElementById('saveNote').onclick = () => {
+  localStorage.setItem('note', note.value);
+};
+document.getElementById('clearNote').onclick = () => {
+  if(confirm('清空当前便笺？')){ note.value=''; localStorage.removeItem('note'); }
+};
+
+/* ---------- 彩带（简易版） ---------- */
+const cvs = document.getElementById('confetti');
+const ctx = cvs.getContext('2d');
+let W,H; function resize(){ W= cvs.width = window.innerWidth; H = cvs.height = window.innerHeight; }
+resize(); addEventListener('resize', resize);
+let particles = [];
+function burst(x=W/2,y=H/3,count=120){
+  for(let i=0;i<count;i++){
+    particles.push({
+      x, y,
+      vx:(Math.random()-0.5)*6, vy:Math.random()*-6-2,
+      g:0.15+Math.random()*0.1,
+      s:2+Math.random()*3,
+      life: 90+Math.random()*40,
+      hue: Math.floor(Math.random()*360)
+    });
+  }
+}
+document.getElementById('fireBtn').onclick = ()=> burst();
+
+(function loop(){
+  requestAnimationFrame(loop);
+  ctx.clearRect(0,0,W,H);
+  particles = particles.filter(p=>p.life>0);
+  for(const p of particles){
+    p.life--; p.x+=p.vx; p.y+=p.vy; p.vy+=p.g;
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.rotate(p.x*0.02);
+    ctx.fillStyle = `hsl(${p.hue} 90% 60%)`;
+    ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*2);
+    ctx.restore();
+  }
+})();
+
+/* ---------- 彩蛋：Konami Code ---------- */
+const seq = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let k = 0;
+addEventListener('keydown', (e)=>{
+  const key = e.key.length===1 ? e.key.toLowerCase() : e.key;
+  if(key === seq[k] || key === seq[k].toLowerCase()){ k++; }
+  else { k = (key==='ArrowUp') ? 1 : 0; }
+  if(k===seq.length){ k=0; alert('🎉 恭喜发现彩蛋！送你一波彩带～'); burst(); }
+});
+</script>
 </body>
 </html>

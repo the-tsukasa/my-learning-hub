@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>简易日历</title>
+  <style>
+    body { background: #f8f9fa; color: #212529; font-family: system-ui, Arial, sans-serif; margin: 0; }
+    .calendar { max-width: 340px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.08); padding: 24px; }
+    .calendar h2 { text-align: center; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { width: 14.28%; text-align: center; padding: 8px 0; }
+    th { background: #007bff; color: #fff; border-radius: 6px; }
+    td { background: #e9ecef; border-radius: 6px; }
+    .today { background: #ffc107; color: #212529; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="calendar">
+    <h2 id="monthYear"></h2>
+    <table>
+      <thead>
+        <tr>
+          <th>日</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th>
+        </tr>
+      </thead>
+      <tbody id="calendarBody"></tbody>
+    </table>
+  </div>
+  <script>
+    function renderCalendar() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const today = now.getDate();
+      document.getElementById('monthYear').textContent = `${year}年${month+1}月`;
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month+1, 0).getDate();
+      let html = '<tr>';
+      for(let i=0; i<firstDay; i++) html += '<td></td>';
+      for(let d=1; d<=daysInMonth; d++) {
+        const isToday = d === today;
+        html += `<td class="${isToday ? 'today' : ''}">${d}</td>`;
+        if((firstDay + d) % 7 === 0 && d !== daysInMonth) html += '</tr><tr>';
+      }
+      const lastDay = (firstDay + daysInMonth) % 7;
+      if(lastDay !== 0) for(let i=lastDay; i<7; i++) html += '<td></td>';
+      html += '</tr>';
+      document.getElementById('calendarBody').innerHTML = html;
+    }
+    renderCalendar();
+  </script>
+</body>
+</html>

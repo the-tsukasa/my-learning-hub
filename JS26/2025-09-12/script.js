@@ -33,6 +33,17 @@ window.initMap = async function initMap() {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         console.log(lat, lng);
+
+        // 地図の中央を設定
+        map.setCenter({ lat: lat, lng: lng });
+        new AdvancedMarkerElement({
+          map,
+          position: { lat: lat, lng: lng },
+        });
+
+        // input に緯度経度を設定
+        latInput.value = lat;
+        lngInput.value = lng;
       },
       () => {
         console.log("座標取得に失敗しました");

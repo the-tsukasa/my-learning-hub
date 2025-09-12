@@ -1,0 +1,57 @@
+<html>
+
+<head>
+  <script src="https://yubinbango.github.io/yubinbango/yubinbango.js" charset="UTF-8"></script>
+  <script src="./script.js" defer></script>
+</head>
+
+<body>
+  <h1>HAL東京 学生情報入力フォーム</h1>
+  <form action="./complete.html" class="h-adr">
+    <div>
+      名前:<input type="text">
+    </div>
+    <div>
+      学籍番号:<input type="text">
+    </div>
+    <div>
+      出席番号:<input type="number">
+    </div>
+    <div>
+      学部:
+      <select>
+        <option>IT学部</option>
+        <option>CG学部</option>
+      </select>
+    </div>
+    <div>
+      クラス記号:<input type="text">
+    </div>
+    <div>
+      成績:<br>
+      JS26:
+      <input type="radio" name="js26">承認
+      <input type="radio" name="js26">未認定
+    </div>
+    <div>
+      課題:<br>
+      JS26:
+      <input type="checkbox">Kadai1
+      <input type="checkbox">Kadai2
+      <input type="checkbox">Kadai3
+    </div>
+    <div>
+      住所<br>
+      <span class="p-country-name" style="display:none;">Japan</span>
+      郵便番号:<input type="text" class="p-postal-code"><br>
+      都道府県:<input type="text" class="p-region"><br>
+      市町村区:<input type="text" class="p-locality"><br>
+      番地・マンション名:<input type="text">
+    </div>
+    <div>
+      <input type="submit" value="登録">
+    </div>
+  </form>
+</body>
+
+</html>

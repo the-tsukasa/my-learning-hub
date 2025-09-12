@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "streetsidesoftware.code-spell-checker",
+        "vscode-icons-team.vscode-icons",
+        "wayou.vscode-todo-highlight",
+        "bmewburn.vscode-intelephense-client",
+        "christian-kohler.path-intellisense",
+        "ms-vsliveshare.vsliveshare"
+    ]
+}

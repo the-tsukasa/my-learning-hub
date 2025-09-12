@@ -1,0 +1,53 @@
+<html>
+
+<head>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+
+<body>
+  <h1>会員登録フォーム</h1>
+  <form action="./complete.html" method="post">
+    <div>
+      名前（必須）<br>
+      <input type="text" name="name">
+      <div class="error name-error"></div>
+    </div>
+    <div>
+      メールアドレス（必須）<br>
+      <input type="email" name="email">
+      <div class="error email-error"></div>
+    </div>
+    <div>
+      プラン（必須）<br>
+      <select name="plan">
+        <option value="">選択してください</option>
+        <option value="1000">1,000円</option>
+        <option value="3000">3,000円</option>
+        <option value="5000">5,000円</option>
+      </select>
+      <div class="error plan-error"></div>
+    </div>
+    <div>
+      お支払い方法（必須）<br>
+      <input type="radio" name="payment" value="クレジットカード">
+      クレジットカード
+      <input type="radio" name="payment" value="銀行振込">
+      銀行振込
+    </div>
+    <div class="error payment-error"></div>
+    <div>
+      <input type="checkbox" name="agreement" value="利用規約">
+      利用規約に同意する
+      <br>
+      <input type="checkbox" name="agreement" value="プライバシーポリシー">
+      プライバシーポリシーに同意する
+      <div class="error agreement-error"></div>
+    </div>
+    <div>
+      <input type="submit" value="登録">
+    </div>
+  </form>
+</body>
+
+</html>

@@ -1,0 +1,31 @@
+<html>
+
+<head>
+  <script src="./script.js" defer></script>
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+  <h1>モバイルオーダー　商品一覧</h1>
+  <div class="items"></div>
+
+  <h2>カート</h2>
+  <div class="cart"></div>
+
+  <h3>合計金額：<span class="total">0</span>円</h3>
+
+  <div>
+    <button class="clear-button">カートを空にする</button>
+  </div>
+
+  <dialog>
+    <div>商品名:<span class="selected-name"></span></div>
+    <div>価格:<span class="selected-price"></span>円</div>
+    <form method="dialog">
+      <button>閉じる</button>
+      <button class="cart-button">カートに追加</button>
+    </form>
+  </dialog>
+</body>
+
+</html>

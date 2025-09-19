@@ -44,10 +44,22 @@ window.initMap = async function initMap() {
         // input に緯度経度を設定
         latInput.value = lat;
         lngInput.value = lng;
+
+        // basePosition と現在地を直線で結ぶ
+        const path = new google.maps.Polyline({
+          path: [basePosition, { lat: lat, lng: lng }],
+          strokeColor: "#FF0000",
+          strokeOpacity: 1.0,
+          strokeWeight: 2,
+        });
+        path.setMap(map);
       },
       () => {
         console.log("座標取得に失敗しました");
       }
     );
   });
+
+  // TODO: latInput, lngInput が変更されたら
+  // そこにMarkerを追加する
 };

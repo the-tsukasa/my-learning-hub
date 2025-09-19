@@ -55,7 +55,7 @@
   async function listRepos(){
     titleBox.textContent=owner+"'s repositories";
     listBox.textContent='Loading…';
-    btnOverview.style.display="none"; // 不显示 Overview 按钮
+    btnOverview.style.display="none";
     try{
       const res=await fetch(`https://api.github.com/users/${owner}/repos?per_page=100`);
       const data=await res.json();
@@ -76,7 +76,7 @@
   async function listFiles(path=''){
     titleBox.textContent=`${owner}/${repo}`;
     listBox.textContent='Loading…';
-    btnOverview.style.display="inline-block"; // 显示 Overview 按钮
+    btnOverview.style.display="inline-block";
     try{
       const res=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`);
       const data=await res.json();
@@ -92,7 +92,8 @@
         if(it.type==='dir'){
           a.onclick=(e)=>{e.preventDefault();listFiles(it.path);};
         }else{
-          if(/^index\.html?$/i.test(it.name)){
+          // 只屏蔽 Repo Explorer.html
+          if(/^Repo Explorer\.html$/i.test(it.name)){
             a.classList.add('disabled');
           }else{
             a.onclick=(e)=>{e.preventDefault();openPreview(it.path);};
@@ -118,10 +119,10 @@
   };
 
   // ---- 主入口 ----
-  if(!repo){ // repo 列表模式
+  if(!repo){
     btnGitHub.onclick=()=>window.open(`https://github.com/${owner}?tab=repositories`,'_blank');
     listRepos();
-  }else{ // 文件浏览模式
+  }else{
     btnGitHub.onclick=()=>window.open(`https://github.com/${owner}/${repo}`,'_blank');
     listFiles(path);
   }

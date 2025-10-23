@@ -241,6 +241,16 @@
           </div>
 
           <div class="card">
+            <h3>デバイス連携</h3>
+            <p class="muted">あなたのスマートデバイスとVibを接続し、体験を拡張します。</p>
+            <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap">
+              <button class="btn" onclick="connectWatch()">⌚ スマートウォッチ接続</button>
+              <button class="btn primary" onclick="connectVR()">🕶 VR眼鏡リンク</button>
+            </div>
+            <div id="deviceStatus" class="muted" style="margin-top:10px; font-size:13px">未接続</div>
+          </div>
+
+          <div class="card">
             <h3>最近の共鳴ログ</h3>
             <div id="history" class="history"></div>
           </div>
@@ -451,11 +461,43 @@
       }
     })();
 
-// ===== Re-experience (reset onboarding) =====
+    // ===== Re-experience (reset onboarding) =====
     ;function resetOnboarding(){
     localStorage.removeItem('vib_name');
     alert('データをリセットしました。再読み込みすると、入場画面から再体験できます。');
     location.reload();
+
+    // ===== Device link simulation （仮にデバイスの連結機能）=====
+    const deviceStatus = document.getElementById('deviceStatus');
+
+    function connectWatch(){
+      deviceStatus.textContent = '⌚ スマートウォッチを検索中…';
+      setTimeout(()=>{
+        deviceStatus.textContent = '✅ スマートウォッチ接続完了（脈拍データ同期中）';
+        pushHistory('スマートウォッチから感情データを受信しました。');
+        document.body.style.setProperty('--brand','#ffe082'); // 动态改变主题亮度
+      }, 1200);
+    }
+
+    function connectVR(){
+      deviceStatus.textContent = '🕶 VR眼鏡をリンク中…';
+      setTimeout(()=>{
+        deviceStatus.textContent = '✅ VR眼鏡リンク成功（共感空間を開く準備完了）';
+        pushHistory('VR空間で共感セッションを開始しました。');
+        showVRScene();
+      }, 1400);
+    }
+
+    function showVRScene(){
+      const overlay=document.getElementById('overlay');
+      overlay.classList.add('show');
+      overlay.querySelector('.match').innerHTML=`
+        <div class="muted">🕶 VR共感セッション</div>
+        <div style="margin:16px 0; font-size:14px">あなたの視界に光の波紋が広がり、他のユーザーの波長と共鳴しています。</div>
+        <button class="btn" onclick="closeOverlay()">終了</button>
+      `;
+    }
+
 }
 
   </script>

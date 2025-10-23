@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>Three.js Walk Example</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+<script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+
+  let scene, camera, renderer;
+  let mixer = null;
+  const actions = {};
+  let currentAction = null;
+  let character = null;
+  let keys = {};
+  const clock = new THREE.Clock();
+
+  init();
+  animate();
+
+  function init() {
+    // --- Scene & Camera ---
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xcfcfcf);
+
+    // 视野角度从 60° → 75°（视角更大）
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    // 相机高度从 y=2 → y=5，位置更高一点
+    camera.position.set(0, 5, 8);
+
+
+    // --- Renderer ---
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    // --- Lights ---
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+    hemiLight.position.set(0, 20, 0);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    dirLight.position.set(5, 10, 5);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    // --- Environment map (HDR) ---
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    new RGBELoader()
+      .setPath('https://threejs.org/examples/textures/equirectangular/')
+      .load('venice_sunset_1k.hdr', (hdr) => {
+        const envMap = pmrem.fromEquirectangular(hdr).texture;
+        scene.environment = envMap;
+        hdr.dispose?.();
+      });
+
+    // --- Ground ---
+    const checker = new THREE.TextureLoader().load('https://threejs.org/examples/textures/checker.png');
+    checker.wrapS = checker.wrapT = THREE.RepeatWrapping;
+    checker.repeat.set(40, 40);
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(200, 200),
+      new THREE.MeshPhongMaterial({ map: checker, side: THREE.DoubleSide })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // --- Model ---
+    const loader = new GLTFLoader();
+    loader.load('models/silver_soldier_animated.glb', (gltf) => {
+      character = gltf.scene;
+      character.scale.set(1, 1, 1);
+      character.rotation.y = Math.PI;// 让人物反过来
+
+
+      character.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = true;
+          o.receiveShadow = true;
+          // 兜底：有些模型金属度过高，在无env时会发黑
+          if (o.material && 'metalness' in o.material) {
+            o.material.metalness = Math.min(0.4, o.material.metalness ?? 0.4);
+            o.material.roughness = Math.max(0.5, o.material.roughness ?? 0.8);
+            o.material.needsUpdate = true;
+          }
+        }
+      });
+
+      // 尺寸/居中微调（可按需开）
+      // centerModel(character);
+
+      character.scale.set(1, 1, 1);
+      scene.add(character);
+
+      // Animations
+      mixer = new THREE.AnimationMixer(character);
+      gltf.animations.forEach((clip) => { actions[clip.name] = mixer.clipAction(clip); });
+
+      // 自动识别常见动作名
+      const idleName = gltf.animations.find(c => /idle/i.test(c.name))?.name;
+      const runName  = gltf.animations.find(c => /(run|walk)/i.test(c.name))?.name;
+
+      // 安全播放：仅当存在该动作时才播放
+      if (idleName && actions[idleName]) playAction(idleName);
+      else if (gltf.animations[0]) playAction(gltf.animations[0].name);
+      
+      // 把名字保存到对象上，便于 animate() 里使用
+      character.userData.idleName = idleName;
+      character.userData.runName  = runName;
+    });
+
+    // --- Input ---
+    window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+    window.addEventListener('keyup',   (e) => { keys[e.code] = false; });
+
+    // --- Controls (debug) ---
+    new OrbitControls(camera, renderer.domElement);
+
+    // --- Resize ---
+    window.addEventListener('resize', onWindowResize);
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  // 动作切换（含安全保护）
+  function playAction(name) {
+    if (!name || !actions[name]) return;
+    if (currentAction === actions[name]) return;
+    if (currentAction) currentAction.fadeOut(0.2);
+    currentAction = actions[name];
+    currentAction.reset().fadeIn(0.2).play();
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const delta = clock.getDelta();
+    if (mixer) mixer.update(delta);
+
+    if (character) {
+      const moveSpeed = 4 * delta;
+      const rotSpeed  = 2 * delta;
+      let moving = false;
+
+      if (keys['ArrowUp'])    { character.translateZ(-moveSpeed); moving = true; }
+      if (keys['ArrowDown'])  { character.translateZ( moveSpeed); moving = true; }
+      if (keys['ArrowLeft'])  { character.rotation.y += rotSpeed; moving = true; }
+      if (keys['ArrowRight']) { character.rotation.y -= rotSpeed; moving = true; }
+
+      // 仅在存在对应动作时才切换
+      const idleName = character.userData.idleName;
+      const runName  = character.userData.runName;
+
+      if (moving) {
+        if (runName)  playAction(runName);
+      } else {
+        if (idleName) playAction(idleName);
+      }
+
+      // 追踪相机
+      const camOffset = new THREE.Vector3(0, 2, 5).applyAxisAngle(new THREE.Vector3(0, 1, 0), character.rotation.y);
+      camera.position.copy(character.position).add(camOffset);
+      camera.lookAt(character.position);
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  // 可选：把模型居中并落在地面上
+  function centerModel(obj) {
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const center = new THREE.Vector3(); box.getCenter(center);
+    obj.position.x -= center.x;
+    obj.position.z -= center.z;
+    // 让脚落地（y 轴）
+    obj.position.y -= box.min.y;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibWave – レーダースキャン</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/radar.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo">VibWave <span class="mark"></span></div>
+    <div class="muted">感情スキャン中…</div>
+  </header>
+
+  <main class="container">
+    <section id="radar" class="view active">
+      <h2 style="text-align:center;margin-top:16px;">🛰 周囲の波長をスキャン</h2>
+
+      <div class="radar-wrap">
+        <div id="radarZone" class="radar"></div>
+      </div>
+
+      <div class="radar-btns">
+        <button class="btn" onclick="scanRadar()">↻ 周囲スキャン</button>
+        <button class="btn primary" onclick="simulateEncounter()">★ すれ違い発生</button>
+      </div>
+
+      <div id="encounterZone"></div>
+    </section>
+  </main>
+
+  <script src="./js/radar.js" defer></script>
+</body>
+</html>

@@ -68,13 +68,21 @@
         </section>
 
         <section id="radar" class="view">
-          <div class="radar-wrap"><div class="radar"></div></div>
+          <!-- 雷达显示区域 -->
+          <div class="radar-wrap">
+            <div id="radarZone" class="radar"></div>
+          </div>
+
+          <!-- 控制按钮 -->
           <div class="radar-btns">
-            <button class="btn" onclick="fakeWalk()">↻ 周囲スキャン</button>
+            <button class="btn" onclick="scanRadar()">↻ 周囲スキャン</button>
             <button class="btn primary" onclick="simulateEncounter()">★ すれ違い発生</button>
           </div>
+
+          <!-- 扫描结果与遭遇显示 -->
           <div id="encounterZone"></div>
         </section>
+
 
         <section id="matches" class="view">
           <div class="card">

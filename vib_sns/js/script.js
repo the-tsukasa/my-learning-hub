@@ -129,40 +129,50 @@ function ts(){
   return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
 }
 
-// ===== Radar simulation =====
-const zone=document.getElementById('encounterZone');
-function fakeWalk(){
-  pushHistory('周囲をスキャンしました。あなたの波長は安定しています。');
-}
-function simulateEncounter(){
-  stats.encounters++; updateStats();
-  const name=names[Math.floor(Math.random()*names.length)];
-  const tag1=moods[Math.floor(Math.random()*moods.length)];
-  const tag2=moods[Math.floor(Math.random()*moods.length)];
-  const compat=70+Math.floor(Math.random()*30);
-  const icon=['🧑‍🚀','🧑‍🎤','🧑‍💻','🧑‍🔬','🧑‍🎨','🧑‍🚴','🧘','🧑‍🍳'][Math.floor(Math.random()*8)];
-  const payload={name,tags:[tag1,tag2],compat,icon};
-  zone.innerHTML=`
-  <div class="encounter">
-    <div class="row">
-      <div class="avatar">${icon}</div>
-      <div><div><b>${name}</b></div><div class="muted">${tag1}・${tag2}</div></div>
-      <div class="compat">${compat}%</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:12px">
-      <button class="btn primary" id="sendBtn">非言語「いいね！」を送る</button>
-      <button class="btn" onclick="dismissEncounter()">スルー</button>
-    </div>
-  </div>`;
-  document.getElementById('sendBtn').onclick=()=>sendVibe(payload);
-  pushHistory(`${name} とすれ違いました（${compat}%）`);
+// ===== Radar Simulation (Enhanced) =====
+const radarZone = document.getElementById('radarZone');
+
+function scanRadar() {
+  radarZone.innerHTML = '';
+  const count = Math.floor(3 + Math.random() * 3); // 3〜5人
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => spawnTarget(i), i * 600); // 依次生成
+  }
+  pushHistory('スキャン完了。' + count + '人の波長を検出しました。');
 }
 
-function dismissEncounter(){ zone.innerHTML=''; }
-function sendVibe(p){
-  stats.vibes++; stats.matches++; updateStats();
-  pushMatch(p); pushHistory(`非言語「いいね！」を送信 → ${p.name} と共鳴`);
-  showOverlay(p); zone.innerHTML='';
+function spawnTarget(index) {
+  const iconList = ['🧑‍🚀','🧑‍🎤','🧑‍💻','🧑‍🔬','🧑‍🎨','🧑‍🚴','🧘','🧑‍🍳'];
+  const icon = iconList[Math.floor(Math.random()*iconList.length)];
+  const el = document.createElement('div');
+  el.className = 'target';
+  el.textContent = icon;
+
+  const angle = Math.random() * 360;
+  const distance = 90 + Math.random() * 50; // 外側から内側へ
+  const rad = angle * Math.PI / 180;
+
+  // 初始位置
+  el.style.left = `calc(50% + ${Math.cos(rad) * distance}px)`;
+  el.style.top  = `calc(50% + ${Math.sin(rad) * distance}px)`;
+  radarZone.appendChild(el);
+
+  // 动画延迟（滑入 + 停留 + 消失）
+  el.animate([
+    { transform: 'scale(0)', opacity: 0 },
+    { transform: 'scale(1.2)', opacity: 1, offset: 0.3 },
+    { transform: 'scale(1)', opacity: 1, offset: 0.7 },
+    { transform: 'scale(0.5)', opacity: 0 }
+  ], {
+    duration: 3000 + Math.random() * 1000,
+    easing: 'ease-in-out',
+    fill: 'forwards'
+  });
+
+  // 点消失后随机触发共鸣
+  setTimeout(() => {
+    if (Math.random() < 0.4) simulateEncounter();
+  }, 2500 + Math.random() * 800);
 }
 
 // ===== Overlay =====

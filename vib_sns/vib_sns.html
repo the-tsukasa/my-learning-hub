@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vib – すれ違いで共感がつながるSNS（発表用HTML原型）</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b1020">
   <style>
     :root{
       --bg:#0b1020;              /* 深い宇宙色 */
@@ -497,6 +499,15 @@
         <button class="btn" onclick="closeOverlay()">終了</button>
       `;
     }
+
+        if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+          .then(() => console.log('✅ Service Worker registered'))
+          .catch(err => console.error('Service Worker failed:', err));
+      });
+    }
+
 
 }
 

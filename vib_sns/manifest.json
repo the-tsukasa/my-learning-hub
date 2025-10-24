@@ -1,12 +1,14 @@
 {
   "name": "Vib – すれ違いで共感がつながるSNS",
   "short_name": "Vib",
-  "description": "言葉はいらない。感じるだけで、世界とつながるSNS体験。",
+  "description": "言葉はいらない。感じるだけで、世界とつながる。非言語共感SNS「Vib」",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0b1020",
   "theme_color": "#66e3ff",
   "orientation": "portrait",
+  "lang": "ja",
+  "scope": "./",
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -17,6 +19,12 @@
       "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "icons/maskable-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

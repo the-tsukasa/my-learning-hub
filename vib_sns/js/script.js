@@ -25,33 +25,53 @@ function autoFill(){
   nickInput.value = `${aff}_${base}-${num}`;
 }
 
+// ===== 光粒入場アニメーション =====
+function spawnParticles() {
+  const wrap = document.getElementById('entryWrap');
+  if (!wrap) return;
+  wrap.querySelectorAll('.pt').forEach(n => n.remove());
+
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('span');
+    s.className = 'pt';
+    const sx = (Math.random() * -100 - 50) + 'px';
+    const sy = (Math.random() * 120 - 60) + 'px';
+    const ex = (Math.random() * 300 + 100) + 'px';
+    const ey = (Math.random() * 120 - 60) + 'px';
+    s.style.setProperty('--sx', sx);
+    s.style.setProperty('--sy', sy);
+    s.style.setProperty('--ex', ex);
+    s.style.setProperty('--ey', ey);
+    s.style.left = '50%';
+    s.style.top = '50%';
+    s.style.animationDelay = (Math.random() * 1.2).toFixed(2) + 's';
+    s.style.opacity = 0.6 + Math.random() * 0.4;
+    wrap.appendChild(s);
+  }
+}
+
+function startEntryAnim() {
+  const entryAnim = document.getElementById('entryAnim');
+  entryAnim.classList.add('show');
+  spawnParticles();
+  const text = document.getElementById('entryText');
+  text.textContent = '共感チャンネルを接続中…';
+
+  setTimeout(() => {
+    text.textContent = '波長を同調中…';
+  }, 1200);
+
+  setTimeout(() => {
+    text.textContent = 'エネルギー同期完了';
+    finishEntry();
+  }, 2400);
+}
+
 function startSync(){
   const name = (nickInput.value || '').trim() || seedNames[Math.floor(Math.random()*seedNames.length)];
   localStorage.setItem('vib_name', name);
-  entryText.textContent = '共感チャンネルを接続中…';
   nameScreen.classList.add('hide');
-  entryAnim.classList.add('show');
-  spawnParticles();
-  setTimeout(()=>{ entryText.textContent = `${name} の波長を同調中…`; }, 600);
-  setTimeout(()=>{ finishEntry(); }, 1800);
-}
-
-function spawnParticles(){
-  entryWrap.querySelectorAll('.pt').forEach(n=>n.remove());
-  for(let i=0;i<64;i++){
-    const s = document.createElement('span');
-    s.className='pt';
-    const sx = (Math.random()*-140-60) + 'px';
-    const sy = (Math.random()*160-80) + 'px';
-    const ex = (Math.random()*340+160) + 'px';
-    const ey = (Math.random()*160-80) + 'px';
-    s.style.setProperty('--sx', sx); s.style.setProperty('--sy', sy);
-    s.style.setProperty('--ex', ex); s.style.setProperty('--ey', ey);
-    s.style.left = '50%'; s.style.top = '50%';
-    s.style.animationDelay = (Math.random()*1.4).toFixed(2)+'s';
-    s.style.opacity = 0.6 + Math.random()*0.4;
-    entryWrap.appendChild(s);
-  }
+  startEntryAnim(); // ← 新动画启动
 }
 
 function finishEntry(){

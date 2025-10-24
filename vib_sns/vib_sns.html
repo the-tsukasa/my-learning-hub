@@ -3,24 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vib – すれ違いで共感がつながるSNS（PWA版）</title>
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#0b1020" />
-  <link rel="stylesheet" href="css/style.css" />
+  <title>Vib – すれ違いで共感がつながるSNS</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b1020">
+  <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-
   <!-- ========== ONBOARDING ========== -->
   <div id="onboarding">
-    <div class="ob-bg"></div>
-    <div class="ob-grid"></div>
-
     <div id="welcomeScreen" class="ob-card">
       <div class="logo-xl"><span class="mark"></span>Vib <span class="muted">/ Empatia</span></div>
-      <p class="muted" style="margin:.6rem 0 0">言葉はいらない。感じるだけで、世界とつながる。</p>
-      <div class="ob-actions">
-        <button class="ob-btn primary" onclick="goName()">はじめる</button>
-      </div>
+      <p class="muted">言葉はいらない。感じるだけで、世界とつながる。</p>
+      <button class="ob-btn primary" onclick="goName()">はじめる</button>
     </div>
 
     <div id="nameScreen" class="ob-card hide">
@@ -30,9 +24,10 @@
         <button class="ob-btn" onclick="autoFill()">自動で決める</button>
         <button class="ob-btn primary" onclick="startSync()">Sync!（同期開始）</button>
       </div>
-      <p class="muted" style="margin-top:6px; font-size:12px">※ 手入力も自動生成もOK。あとでプロフィールから変更できます。</p>
+      <p class="muted" style="margin-top:6px;font-size:12px;">※ 手入力も自動生成もOK。</p>
     </div>
 
+    <!-- 光粒入場アニメーション -->
     <div id="entryAnim">
       <div class="entry-wrap" id="entryWrap">
         <div class="ring"></div>
@@ -48,10 +43,8 @@
   <div class="stage" id="stage">
     <div class="phone">
       <div class="screen">
-        <div class="grid"></div>
         <div class="topbar">
           <div class="logo"><span class="mark"></span>Vib <span class="muted">/ Empatia</span></div>
-          <div class="energy"></div>
         </div>
 
         <div class="tabs">
@@ -61,28 +54,31 @@
           <div class="tab" data-view="profile">プロフィール</div>
         </div>
 
-        <!-- 各 View 内容 -->
         <section id="home" class="view active">
           <div class="card">
             <button class="glow-like" onclick="toggleLike(this)">非言語いいね</button>
             <h3>ようこそ、<span id="welcomeName">あなた</span> さん</h3>
             <div class="badge"><span class="vibe-dot"></span> 今日の波長：穏やかさ + 集中</div>
-            <p class="muted" style="margin-top:8px">あなたの共感レベルは <b>72</b>。</p>
+            <p class="muted">共感レベル <b>72</b>。</p>
+          </div>
+          <div class="card">
+            <h3>世界観</h3>
+            <p class="muted">言葉はいらない。感じるだけで、世界とつながる。</p>
           </div>
         </section>
 
         <section id="radar" class="view">
-          <div class="radar-wrap"><div class="radar" id="radar"></div></div>
+          <div class="radar-wrap"><div class="radar"></div></div>
           <div class="radar-btns">
             <button class="btn" onclick="fakeWalk()">↻ 周囲スキャン</button>
-            <button class="btn primary" onclick="simulateEncounter()">★ すれ違いを発生</button>
+            <button class="btn primary" onclick="simulateEncounter()">★ すれ違い発生</button>
           </div>
           <div id="encounterZone"></div>
         </section>
 
         <section id="matches" class="view">
           <div class="card">
-            <h3>マッチ＆共感履歴</h3>
+            <h3>マッチ履歴</h3>
             <div id="matchList" class="history"></div>
             <p class="muted" id="noMatchMsg">まだ共感履歴がありません。</p>
           </div>
@@ -90,17 +86,32 @@
 
         <section id="profile" class="view">
           <div class="stats">
-            <div class="stat"><b id="statVibes">0</b><span class="muted">非言語いいね</span></div>
+            <div class="stat"><b id="statVibes">0</b><span class="muted">いいね</span></div>
             <div class="stat"><b id="statEncounters">0</b><span class="muted">すれ違い</span></div>
             <div class="stat"><b id="statMatches">0</b><span class="muted">マッチ</span></div>
           </div>
-          <div class="card" style="margin-top:12px">
-            <h3>プロフィール</h3>
-            <p class="muted">波長タイプ：落ち着き / 好奇心 / 思いやり</p>
+
+          <div class="card">
+            <h3>デバイス連携</h3>
+            <p class="muted">スマートデバイスを接続して拡張。</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn" onclick="connectWatch()">⌚ ウォッチ</button>
+              <button class="btn primary" onclick="connectVR()">🕶 VR</button>
+            </div>
+            <div id="deviceStatus" class="muted" style="margin-top:10px;font-size:13px">未接続</div>
+          </div>
+
+          <div class="card">
+            <h3>体験をリセット</h3>
+            <button class="btn primary" onclick="resetOnboarding()">再体験する</button>
+          </div>
+
+          <div class="card">
+            <h3>共鳴ログ</h3>
+            <div id="history" class="history"></div>
           </div>
         </section>
 
-        <!-- Overlay -->
         <div class="overlay" id="overlay">
           <div class="match">
             <div class="muted">Non-Verbal Match</div>
@@ -109,15 +120,14 @@
               <div class="beam-sm"></div>
               <div class="avatar" id="other">🫶</div>
             </div>
-            <div id="matchText" style="margin-bottom:12px">共感リンクを確立中…</div>
+            <div id="matchText">共感リンクを確立中…</div>
             <button class="btn" onclick="closeOverlay()">閉じる</button>
           </div>
         </div>
-
       </div>
     </div>
   </div>
 
-  <script src="js/script.js"></script>
+  <script src="./js/script.js"></script>
 </body>
 </html>

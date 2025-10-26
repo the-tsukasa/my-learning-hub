@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我的位置地图</title>
+
+  <!-- Leaflet 地图CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 16px 20px;
+      background: rgba(15,23,42,.8);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    header button {
+      background: #38bdf8;
+      border: 0;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #0f172a;
+      font-size: 14px;
+    }
+
+    #status {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-top: 8px;
+      min-height: 1.2em;
+    }
+
+    #map {
+      flex: 1;
+      min-height: 300px;
+    }
+
+    /* Leaflet 默认是浅色图标，放在深色背景上也OK */
+    .coords-box {
+      position: absolute;
+      z-index: 1000;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(0,0,0,.6);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #fff;
+      min-width: 180px;
+      box-shadow: 0 30px 60px rgba(0,0,0,.8);
+    }
+    .coords-box .label {
+      color:#94a3b8;
+      font-size:12px;
+    }
+    .coords-box .val {
+      font-weight:600;
+      color:#fff;
+      font-size:14px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>📍 当前位置示例（Leaflet + HTML）</div>
+  <button id="locBtn">获取我的位置</button>
+  <div id="status">未定位</div>
+</header>
+
+<div id="map"></div>
+
+<div class="coords-box">
+  <div class="label">纬度</div>
+  <div class="val" id="latText">--</div>
+  <div class="label">经度</div>
+  <div class="val" id="lngText">--</div>
+</div>
+
+<!-- Leaflet JS -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<script>
+  // 先初始化地图在一个默认位置（东京站附近，防止一片空白）
+  const map = L.map('map').setView([35.681236, 139.767125], 13);
+
+  // 贴上OpenStreetMap底图瓦片
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  // 我们自己的 marker（先放一个占位）
+  let userMarker = null;
+
+  const locBtn   = document.getElementById("locBtn");
+  const statusEl = document.getElementById("status");
+  const latText  = document.getElementById("latText");
+  const lngText  = document.getElementById("lngText");
+
+  locBtn.addEventListener("click", () => {
+    if (!navigator.geolocation) {
+      statusEl.textContent = "这个浏览器不支持定位。";
+      return;
+    }
+
+    statusEl.textContent = "定位中…";
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        latText.textContent = lat;
+        lngText.textContent = lng;
+        statusEl.textContent = "定位成功 ✔";
+
+        // 移动地图到当前位置
+        map.setView([lat, lng], 16);
+
+        // 如果之前已经有marker了，更新位置
+        if (userMarker) {
+          userMarker.setLatLng([lat, lng]);
+        } else {
+          // 创建一个marker并加到地图
+          userMarker = L.marker([lat, lng]).addTo(map)
+            .bindPopup("你在这里 👋")
+            .openPopup();
+        }
+      },
+      (err) => {
+        if (err.code === 1) {
+          statusEl.textContent = "你拒绝了定位权限。";
+        } else if (err.code === 2) {
+          statusEl.textContent = "无法获取位置（可能信号不好）。";
+        } else if (err.code === 3) {
+          statusEl.textContent = "定位超时。";
+        } else {
+          statusEl.textContent = "未知错误: " + err.message;
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  });
+</script>
+
+</body>
+</html>
